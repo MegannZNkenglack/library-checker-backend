@@ -4,7 +4,7 @@
 import { Hono }   from "hono";
 import bcrypt      from "bcryptjs";
 import db          from "../db.js";
-import { createToken } from "../auth.js";
+import { createToken, requireAuth } from "../auth.js";
 
 const router = new Hono();
 
@@ -160,8 +160,8 @@ router.get("/google/callback", async (c) => {
 
 // ── GET /auth/me ──────────────────────────────────────────────────────────────
 
-router.get("/me", async (c) => {
-  // requireAuth middleware already ran — userId is set on context
+router.get("/me", requireAuth, async (c) => {
+  // requireAuth already loaded the user and put its id on context
   const userId = c.get("userId");
   const user   = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
   if (!user) return c.json({ error: "User not found" }, 404);
