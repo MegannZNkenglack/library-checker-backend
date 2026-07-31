@@ -1,0 +1,46 @@
+# Render Blueprint — see https://render.com/docs/blueprint-spec
+# Deploy: push this repo to GitHub, then in Render dashboard choose
+# "New +" -> "Blueprint" and point it at this repo. Render reads this file
+# and provisions the service + disk automatically.
+
+services:
+  - type: web
+    name: library-checker-backend
+    runtime: node
+    plan: starter # required for a persistent disk — free tier resets its filesystem on restart
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    disk:
+      name: library-checker-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /opt/render/project/src/data/library_checker.db
+      # Everything below has no default — set these in the Render dashboard
+      # after the first deploy (Blueprint won't prompt for secrets).
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_SUCCESS_URL
+        sync: false
+      - key: STRIPE_CANCEL_URL
+        sync: false
+      - key: EXTENSION_ID
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false

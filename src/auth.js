@@ -2,6 +2,7 @@
 // JWT creation and verification helpers.
 
 import { SignJWT, jwtVerify } from "jose";
+import db from "./db.js";
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "dev-secret-change-in-production"
@@ -32,6 +33,9 @@ export async function verifyToken(token) {
 }
 
 // ── Middleware: require a valid Bearer token ────────────────────────────────────
+// Tier is looked up fresh from the DB on every request rather than trusted from
+// the JWT payload — tokens live for 30 days, so a stale claim would mean a user
+// who just upgraded (or cancelled) doesn't see the change take effect for weeks.
 
 export async function requireAuth(c, next) {
   const authHeader = c.req.header("Authorization");
@@ -43,8 +47,12 @@ export async function requireAuth(c, next) {
   if (!payload) {
     return c.json({ error: "Invalid or expired token" }, 401);
   }
-  c.set("userId",    payload.sub);
-  c.set("userEmail", payload.email);
-  c.set("userTier",  payload.tier);
+  const user = db.prepare("SELECT id, email, tier FROM users WHERE id = ?").get(payload.sub);
+  if (!user) {
+    return c.json({ error: "User not found" }, 401);
+  }
+  c.set("userId",    user.id);
+  c.set("userEmail", user.email);
+  c.set("userTier",  user.tier);
   await next();
 }

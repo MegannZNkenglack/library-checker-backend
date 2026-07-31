@@ -45,7 +45,7 @@ router.post("/signup", async (c) => {
   `).run(email.toLowerCase(), passwordHash, name || null);
 
   const user  = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
-  const token = await createToken({ sub: String(user.id), email: user.email, tier: user.tier });
+  const token = await createToken({ sub: String(user.id), email: user.email });
 
   return c.json({ token, user: safeUser(user) }, 201);
 });
@@ -69,7 +69,7 @@ router.post("/login", async (c) => {
     return c.json({ error: "Invalid email or password" }, 401);
   }
 
-  const token = await createToken({ sub: String(user.id), email: user.email, tier: user.tier });
+  const token = await createToken({ sub: String(user.id), email: user.email });
   return c.json({ token, user: safeUser(user) });
 });
 
@@ -148,7 +148,7 @@ router.get("/google/callback", async (c) => {
     }
   }
 
-  const jwt = await createToken({ sub: String(user.id), email: user.email, tier: user.tier });
+  const jwt = await createToken({ sub: String(user.id), email: user.email });
 
   // Redirect back to the extension using a custom protocol.
   // The extension listens for this in the background service worker.

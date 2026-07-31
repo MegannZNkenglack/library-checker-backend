@@ -4,6 +4,7 @@
 import { Hono } from "hono";
 import Stripe   from "stripe";
 import db       from "../db.js";
+import { requireAuth } from "../auth.js";
 
 const router = new Hono();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -11,8 +12,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ── POST /billing/checkout ────────────────────────────────────────────────────
 // Creates a Stripe Checkout session and returns the URL.
 // The extension opens this URL in a new tab.
+// Auth is applied per-route (not via a wildcard in index.js) so that
+// /billing/webhook — called by Stripe, not the extension — stays public.
 
-router.post("/checkout", async (c) => {
+router.post("/checkout", requireAuth, async (c) => {
   const userId    = c.get("userId");
   const userEmail = c.get("userEmail");
   const user      = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
@@ -33,12 +36,15 @@ router.post("/checkout", async (c) => {
   }
 
   const session = await stripe.checkout.sessions.create({
-    customer:             customerId,
-    payment_method_types: ["card"],
+    customer:    customerId,
     line_items: [{
       price:    process.env.STRIPE_PRICE_ID,
       quantity: 1,
     }],
+    // This Stripe account has Managed Payments on by default, which imposes
+    // extra requirements (e.g. product tax codes) on Checkout Sessions.
+    // Opt back into the classic flow this code was written for.
+    managed_payments: { enabled: false },
     mode:        "subscription",
     success_url: process.env.STRIPE_SUCCESS_URL,
     cancel_url:  process.env.STRIPE_CANCEL_URL,
@@ -51,7 +57,7 @@ router.post("/checkout", async (c) => {
 // ── POST /billing/portal ──────────────────────────────────────────────────────
 // Opens the Stripe customer portal so users can manage/cancel their subscription.
 
-router.post("/portal", async (c) => {
+router.post("/portal", requireAuth, async (c) => {
   const userId = c.get("userId");
   const user   = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
 
