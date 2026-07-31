@@ -4,9 +4,13 @@
 import { SignJWT, jwtVerify } from "jose";
 import db from "./db.js";
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "dev-secret-change-in-production"
-);
+// No insecure fallback here on purpose: signing tokens with a hardcoded
+// default would mean anyone who reads this file (it's public on GitHub)
+// could forge a valid JWT for any user ID. Fail fast instead.
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is not set — refusing to start.");
+}
+const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 const ALGORITHM = "HS256";
 const EXPIRES_IN = "30d";
