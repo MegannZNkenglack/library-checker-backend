@@ -167,28 +167,36 @@ async function checkAvailability(bibId, libraryUrl) {
 
 // ── Main check logic ──────────────────────────────────────────────────────────
 
+// Search the library's own catalog site directly. Used both when a library
+// has no NoveList credentials at all, and as a fallback when NoveList's
+// ISBN-only API (see below) has no record of the book — a hit here means
+// "the library has something for this title," not a confirmed exact edition.
+async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
+  const searches = [];
+  if (isbn)  searches.push(`${libraryUrl}/search?q=${encodeURIComponent(isbn)}&type=smart`);
+  if (title) searches.push(titleSearchUrl(title, author, libraryUrl));
+  for (const url of searches) {
+    try {
+      const html = await (await fetch(url)).text();
+      // BiblioCommons no longer renders a data-bib-id attribute — current
+      // markup embeds real result links as /v2/record/S125C<bibId> instead.
+      if (/\/v2\/record\/[A-Za-z0-9]+/.test(html)) return { status: "no_exact_edition", searchUrl: url };
+    } catch {}
+  }
+  return { status: "not_found" };
+}
+
 async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
   const creds = getNovelISTCreds(libraryUrl);
-  if (!creds) {
-    // No creds for this library — fall back to HTML scraping
-    const searches = [];
-    if (isbn) searches.push(`${libraryUrl}/search?q=${encodeURIComponent(isbn)}&type=smart`);
-    if (title) {
-      const q = author ? `${title.replace(/\s*\(.*?\)\s*$/,"").trim()} ${author}` : title;
-      searches.push(`${libraryUrl}/search?q=${encodeURIComponent(q)}&type=smart`);
-    }
-    for (const url of searches) {
-      try {
-        const html = await (await fetch(url)).text();
-        if (/data-bib-id=["']\d+["']/.test(html)) return { status: "in_catalog", searchUrl: url };
-      } catch {}
-    }
-    return { status: "not_found" };
-  }
+  if (!creds) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
 
-  let manifestations = null, titleInfoAuthor = null, matchedBy = "isbn";
+  let manifestations = null, titleInfoAuthor = null;
 
-  // Pass 1: ISBN
+  // NoveList's ContentByQuery API only supports lookup by ISBN/UPC/ItemID —
+  // it rejects free-text title search outright ("Missing an ISBN, UPC, or
+  // ItemID!"), regardless of parameter name. So ISBN is the only query this
+  // API can actually answer; everything else falls back to searching the
+  // library's own site instead of guessing at an unsupported NoveList query.
   if (isbn) {
     const data = await novelistFetch(
       `?ClientIdentifier=${encodeURIComponent(isbn)}&ISBN=${encodeURIComponent(isbn)}`, creds
@@ -196,37 +204,28 @@ async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
     if (data?.TitleInfo?.manifestations?.length > 0) {
       manifestations  = data.TitleInfo.manifestations;
       titleInfoAuthor = data.TitleInfo.author || null;
-      const held      = manifestations.filter(m => m.Held).length;
-      const exact     = manifestations.some(m => m.Held && m.BibIds?.length && normaliseISBN(m.ISBN) === normaliseISBN(isbn));
-      if (held > 0 && !exact) return { status: "no_exact_edition", searchUrl: titleSearchUrl(title, author, libraryUrl) };
-      if (held === 0)         return { status: "no_exact_edition", searchUrl: titleSearchUrl(title, author, libraryUrl) };
-    } else if (data?.TitleInfo) {
-      return { status: "no_exact_edition", searchUrl: titleSearchUrl(title, author, libraryUrl) };
     }
   }
 
-  // Pass 2: title+author
-  if (!manifestations && title) {
-    matchedBy = isbn ? "title" : "title_only";
-    const q    = (title.replace(/\s*\(.*?\)\s*$/,"").trim()) + (author ? ` ${author}` : "");
-    const data = await novelistFetch(`?TitleSearch=${encodeURIComponent(q)}`, creds);
-    if (data?.TitleInfo?.manifestations?.length > 0) {
-      manifestations  = data.TitleInfo.manifestations;
-      titleInfoAuthor = data.TitleInfo.author || null;
-    }
-  }
-
-  if (!manifestations) return { status: "not_found" };
+  if (!manifestations) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
 
   const stamped = manifestations.map(m => ({ ...m, _author: titleInfoAuthor || author }));
-  const best    = selectBestEdition(stamped, isbn, author, title, pageFormat);
-  if (!best)    return { status: "not_found" };
+  const anyHeld = stamped.some(m => m.Held === true && Array.isArray(m.BibIds) && m.BibIds.length > 0);
+  if (!anyHeld) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
+
+  const best = selectBestEdition(stamped, isbn, author, title, pageFormat);
+  if (!best) {
+    // The library holds this title — just not an edition we're confident
+    // matches what the user's looking at. Let them browse what's there
+    // instead of telling them it's not available at all.
+    return { status: "no_exact_edition", searchUrl: titleSearchUrl(title, author, libraryUrl) };
+  }
 
   const bibId        = best.BibIds[0];
   const availability = await checkAvailability(bibId, libraryUrl);
   return {
     status:       "in_catalog",
-    matchedBy,
+    matchedBy:    "isbn",
     availability,
     editionLabel: formatLabel(best.MediaFormat),
     searchUrl:    `${libraryUrl}/v2/record/S125C${bibId}`,
