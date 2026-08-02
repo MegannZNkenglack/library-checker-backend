@@ -105,6 +105,53 @@ h1{margin-bottom:0.25rem} h2{margin-top:2rem}
 <p>Questions about this policy or your data: <a href="mailto:${process.env.SUPPORT_EMAIL || "support@example.com"}">${process.env.SUPPORT_EMAIL || "support@example.com"}</a></p>
 </body></html>`));
 
+// ── Terms of service ──────────────────────────────────────────────────────────
+// Required by the Google OAuth consent screen and good practice for a paid
+// subscription product. This is a plain-language starting point, not a
+// substitute for review by an actual lawyer — the governing-law line in
+// particular is a placeholder until you confirm your own jurisdiction.
+
+app.get("/terms", (c) => c.html(`<!doctype html>
+<html><head><title>Terms of Service — Library Checker</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:640px;margin:2rem auto;padding:0 1.5rem;color:#222;line-height:1.6}
+h1{margin-bottom:0.25rem} h2{margin-top:2rem}
+</style></head><body>
+<h1>Library Checker — Terms of Service</h1>
+<p><em>Last updated: ${new Date().toISOString().slice(0, 10)}</em></p>
+
+<h2>The service</h2>
+<p>Library Checker is a browser extension that checks whether a book you're viewing on Goodreads is available at a library you select. Availability data comes from third-party sources (your library's catalog and NoveList/EBSCO) and may occasionally be incomplete, outdated, or wrong — always confirm with your library before relying on it.</p>
+
+<h2>Accounts</h2>
+<p>You need an account (email/password or Google sign-in) to use the service. You're responsible for keeping your login credentials secure and for activity that happens under your account.</p>
+
+<h2>Free and paid plans</h2>
+<ul>
+<li><strong>Free:</strong> a limited number of checks per day.</li>
+<li><strong>Premium:</strong> a paid monthly subscription billed through Stripe, currently $5/month, for unlimited checks.</li>
+</ul>
+<p>You can cancel anytime from the extension's Account tab (via the Stripe billing portal). Cancelling stops future billing but doesn't refund the current period — you keep premium access until the end of the period you already paid for, then your account reverts to the free plan.</p>
+
+<h2>Acceptable use</h2>
+<p>Don't use the service to abuse, scrape at scale, or overload our backend or the libraries/catalogs it queries on your behalf. We may suspend accounts that do.</p>
+
+<h2>No warranty</h2>
+<p>The service is provided "as is." We don't guarantee it will be uninterrupted, error-free, or that availability results are always accurate, since we depend on third-party data we don't control.</p>
+
+<h2>Limitation of liability</h2>
+<p>To the extent permitted by law, Library Checker isn't liable for indirect, incidental, or consequential damages arising from your use of the service, including a wasted trip to the library for a book that turned out not to be available.</p>
+
+<h2>Changes</h2>
+<p>We may update these terms or the service itself over time. Material changes will be reflected here with an updated date.</p>
+
+<h2>Governing law</h2>
+<p>These terms are governed by the laws of Ontario, Canada.</p>
+
+<h2>Contact</h2>
+<p>Questions about these terms: <a href="mailto:${process.env.SUPPORT_EMAIL || "support@example.com"}">${process.env.SUPPORT_EMAIL || "support@example.com"}</a></p>
+</body></html>`));
+
 // ── Auth routes (no auth required) ────────────────────────────────────────────
 app.route("/auth", authRouter);
 
