@@ -2,10 +2,16 @@
 // Library Checker backend — Hono + Node.js
 
 import "dotenv/config";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { serve }   from "@hono/node-server";
 import { Hono }    from "hono";
 import { cors }    from "hono/cors";
 import { logger }  from "hono/logger";
+
+const __dirname  = dirname(fileURLToPath(import.meta.url));
+const landingHtml = readFileSync(join(__dirname, "landing.html"), "utf8");
 
 import { requireAuth } from "./auth.js";
 import authRouter      from "./routes/auth.js";
@@ -37,8 +43,8 @@ app.use("*", cors({
 // ── Logging ────────────────────────────────────────────────────────────────────
 app.use("*", logger());
 
-// ── Health check ───────────────────────────────────────────────────────────────
-app.get("/", (c) => c.json({ status: "ok", version: "1.0.0" }));
+// ── Landing page / health check ──────────────────────────────────────────────
+app.get("/", (c) => c.html(landingHtml));
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 // ── Stripe checkout redirect targets ─────────────────────────────────────────

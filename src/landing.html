@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Library Checker — Find any book at your local library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #34d367;
+      --green-dark: #0f2d1f;
+      --bg: #0d0d0d;
+      --card: #161616;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8e8e8;
+      --muted: rgba(255,255,255,0.45);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(13,13,13,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--green-dark);
+      border: 1px solid rgba(52,211,103,0.3);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-cta {
+      background: var(--green);
+      color: #0a1f12;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .nav-cta:hover { background: #4ade80; }
+    .nav-cta:active { transform: scale(0.97); }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 90px 24px 70px;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(52,211,103,0.1);
+      border: 1px solid rgba(52,211,103,0.2);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(36px, 6vw, 58px);
+      font-weight: 400;
+      line-height: 1.15;
+      color: #fff;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .hero h1 em {
+      color: var(--green);
+      font-style: italic;
+    }
+
+    .hero p {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 480px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-hero {
+      background: var(--green);
+      color: #0a1f12;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-hero:hover { background: #4ade80; }
+    .btn-hero:active { transform: scale(0.97); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 28px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+
+    /* ── Badge preview ── */
+    .badge-preview {
+      margin: 60px auto 0;
+      max-width: 340px;
+    }
+
+    .badge-mock {
+      background: #0f2d1f;
+      border: 1px solid rgba(52,211,103,0.2);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(52,211,103,0.05);
+    }
+
+    .badge-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 16px;
+    }
+
+    .badge-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(52,211,103,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .badge-text { flex: 1; }
+    .badge-title { font-size: 13px; font-weight: 600; color: #fff; }
+    .badge-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; cursor: pointer; }
+
+    .badge-quota {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(52,211,103,0.4);
+      padding: 5px 16px 7px;
+      border-top: 1px solid rgba(52,211,103,0.08);
+    }
+
+    /* ── Features ── */
+    .features {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green);
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    .features h2 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(28px, 4vw, 38px);
+      font-weight: 400;
+      text-align: center;
+      color: #fff;
+      margin-bottom: 48px;
+      letter-spacing: -0.01em;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      font-size: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Pricing ── */
+    .pricing {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 24px 90px;
+    }
+
+    .pricing h2 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(28px, 4vw, 38px);
+      font-weight: 400;
+      text-align: center;
+      color: #fff;
+      margin-bottom: 40px;
+      letter-spacing: -0.01em;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 560px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+    .pricing-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .pricing-card.featured {
+      background: var(--green-dark);
+      border-color: rgba(52,211,103,0.25);
+    }
+
+    .pricing-badge {
+      display: inline-block;
+      background: rgba(52,211,103,0.15);
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-radius: 100px;
+      padding: 3px 10px;
+      margin-bottom: 16px;
+    }
+
+    .pricing-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .pricing-price {
+      font-size: 34px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+    .pricing-price span { font-size: 14px; font-weight: 400; color: var(--muted); }
+
+    .pricing-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 22px;
+    }
+
+    .pricing-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .pricing-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .pricing-features li::before {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgba(52,211,103,0.15);
+      flex-shrink: 0;
+      margin-top: 1px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2334d367' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+      background-size: 10px;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+
+    .pricing-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .pricing-btn.primary {
+      background: var(--green);
+      color: #0a1f12;
+      border: none;
+    }
+    .pricing-btn.primary:hover { background: #4ade80; }
+
+    .pricing-btn.secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .pricing-btn.secondary:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    footer p {
+      font-size: 12px;
+      color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d367" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </div>
+      Library Checker
+    </a>
+    <a href="#" class="nav-cta">Add to Chrome — Free</a>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      Works with 700+ libraries worldwide
+    </div>
+    <h1>Know if your library has a book <em>before</em> you buy it</h1>
+    <p>Browse Goodreads like normal. Library Checker quietly checks your local library's catalog and shows a badge on every book page.</p>
+    <div class="hero-cta-group">
+      <a href="#" class="btn-hero">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Add to Chrome — It's Free
+      </a>
+      <a href="#pricing" class="btn-ghost">See pricing</a>
+    </div>
+
+    <div class="badge-preview">
+      <div class="badge-mock">
+        <div class="badge-inner">
+          <div class="badge-icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#34d367" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="badge-text">
+            <div class="badge-title">In Hamilton Public Library's collection</div>
+            <div class="badge-sub">Tap to search &amp; place a hold →</div>
+          </div>
+        </div>
+        <div class="badge-quota">4 free checks left today</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <p class="section-label">Features</p>
+    <h2>Everything you need, nothing you don't</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(52,211,103,0.1)">📚</div>
+        <h3>Instant catalog check</h3>
+        <p>See if your library owns a book without leaving Goodreads. Works on any book with an ISBN.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(167,139,250,0.1)">🏙️</div>
+        <h3>700+ libraries supported</h3>
+        <p>Hamilton, Toronto, Vancouver, Seattle, New York, Chicago — pick any BiblioCommons library from the dropdown.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(251,191,36,0.1)">⚡</div>
+        <h3>Click-to-check (quota-friendly)</h3>
+        <p>The badge only runs when you ask, so you're always in control of your daily checks.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(248,113,113,0.1)">📋</div>
+        <h3>Check history</h3>
+        <p>Every book you've looked up is saved in the popup so you can revisit and place holds later.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(52,211,103,0.1)">🔒</div>
+        <h3>Completely private</h3>
+        <p>No account needed for the free plan. Your reading list never leaves your browser.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(167,139,250,0.1)">🚀</div>
+        <h3>One-tap hold</h3>
+        <p>Tap the badge to jump straight to the library's hold page for that book.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing" id="pricing">
+    <h2>Simple, honest pricing</h2>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Free</div>
+        <div class="pricing-price">$0 <span>/ forever</span></div>
+        <div class="pricing-desc">Perfect for casual readers.</div>
+        <ul class="pricing-features">
+          <li>5 catalog checks per day</li>
+          <li>1 library location</li>
+          <li>Check history (last 50)</li>
+          <li>One-tap holds</li>
+        </ul>
+        <a href="#" class="pricing-btn secondary">Add to Chrome</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="pricing-badge">Most popular</div>
+        <div class="pricing-name">Premium</div>
+        <div class="pricing-price">$5 <span>/ month</span></div>
+        <div class="pricing-desc">For serious readers and book clubs.</div>
+        <ul class="pricing-features">
+          <li>Unlimited checks</li>
+          <li>Multiple library locations</li>
+          <li>Full check history</li>
+          <li>Overnight shelf scan (coming soon)</li>
+        </ul>
+        <a href="#" class="pricing-btn primary">Get Premium</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 Library Checker. Not affiliated with BiblioCommons or Goodreads.</p>
+    <p>Built with ♥ for readers everywhere.</p>
+  </footer>
+
+</body>
+</html>
