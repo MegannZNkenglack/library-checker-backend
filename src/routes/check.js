@@ -322,4 +322,12 @@ router.get("/history", async (c) => {
   return c.json({ history });
 });
 
+// ── DELETE /check/history ─────────────────────────────────────────────────────
+
+router.delete("/history", async (c) => {
+  const userId = c.get("userId");
+  db.prepare("DELETE FROM check_history WHERE user_id = ?").run(userId);
+  return c.json({ ok: true });
+});
+
 export default router;
