@@ -169,20 +169,44 @@ async function checkAvailability(bibId, libraryUrl) {
 
 // Search the library's own catalog site directly. Used both when a library
 // has no NoveList credentials at all, and as a fallback when NoveList's
-// ISBN-only API (see below) has no record of the book — a hit here means
-// "the library has something for this title," not a confirmed exact edition.
+// ISBN-only API (see below) recognizes the title but has no manifestation
+// data for it (a real, fairly common gap in NoveList's coverage).
+//
+// Searching by the exact ISBN is precise enough on BiblioCommons that a hit
+// confirms the actual edition — treated as in_catalog. A broader title
+// search only confirms "the library has something for this title," not
+// that it's the same edition, so that stays no_exact_edition.
 async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
-  const searches = [];
-  if (isbn)  searches.push(`${libraryUrl}/search?q=${encodeURIComponent(isbn)}&type=smart`);
-  if (title) searches.push(titleSearchUrl(title, author, libraryUrl));
-  for (const url of searches) {
+  // BiblioCommons no longer renders a data-bib-id attribute — current
+  // markup embeds real result links as /v2/record/S125C<bibId> instead.
+  const recordLinkPattern = /\/v2\/record\/([A-Za-z0-9]+)/;
+
+  if (isbn) {
+    const url = `${libraryUrl}/search?q=${encodeURIComponent(isbn)}&type=smart`;
     try {
-      const html = await (await fetch(url)).text();
-      // BiblioCommons no longer renders a data-bib-id attribute — current
-      // markup embeds real result links as /v2/record/S125C<bibId> instead.
-      if (/\/v2\/record\/[A-Za-z0-9]+/.test(html)) return { status: "no_exact_edition", searchUrl: url };
+      const html  = await (await fetch(url)).text();
+      const match = html.match(recordLinkPattern);
+      if (match) {
+        const numericId    = match[1].match(/\d+$/)?.[0];
+        const availability = numericId ? await checkAvailability(numericId, libraryUrl) : null;
+        return {
+          status:    "in_catalog",
+          matchedBy: "isbn_scrape",
+          availability,
+          searchUrl: `${libraryUrl}${match[0]}`,
+        };
+      }
     } catch {}
   }
+
+  if (title) {
+    const url = titleSearchUrl(title, author, libraryUrl);
+    try {
+      const html = await (await fetch(url)).text();
+      if (recordLinkPattern.test(html)) return { status: "no_exact_edition", searchUrl: url };
+    } catch {}
+  }
+
   return { status: "not_found" };
 }
 
