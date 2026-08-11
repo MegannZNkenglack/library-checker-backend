@@ -164,6 +164,20 @@ app.use("/check/*", requireAuth);
 app.route("/check",   checkRouter);
 app.route("/billing", billingRouter);
 
+// ── TEMPORARY: one-time cleanup of test accounts from development ────────────
+// Scoped to @example.com only — every throwaway account created while
+// testing this session used that domain, and no real account ever would.
+// Remove this route immediately after use; it's not meant to stay deployed.
+
+app.delete("/admin/cleanup-test-users", async (c) => {
+  if (c.req.header("X-Cleanup-Secret") !== "f4f11a9facb5d9912237acee39bfe32702e6c225e7a6bef8") {
+    return c.json({ error: "Unauthorised" }, 401);
+  }
+  const { default: db } = await import("./db.js");
+  const info = db.prepare("DELETE FROM users WHERE email LIKE '%@example.com'").run();
+  return c.json({ deleted: info.changes });
+});
+
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
