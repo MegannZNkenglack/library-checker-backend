@@ -148,6 +148,18 @@ function titleSearchUrl(title, author, libraryUrl) {
 
 // ── Availability check ────────────────────────────────────────────────────────
 
+// BiblioCommons record URLs need a per-library branch-code prefix
+// (e.g. Hamilton is S125C, Toronto is S234C) — without it the URL 500s.
+// The prefix is just "S" + the library's own numeric ID + "C", which every
+// BiblioCommons site exposes in its page's dataLayer script.
+async function getBranchPrefix(libraryUrl) {
+  try {
+    const html = await (await fetch(libraryUrl)).text();
+    const match = html.match(/"bc\.libraryId":(\d+)/);
+    return match ? `S${match[1]}C` : "";
+  } catch { return ""; }
+}
+
 async function checkAvailability(bibId, libraryUrl) {
   try {
     const url  = `${libraryUrl}/v2/records/${bibId}/availability?locale=en-CA`;
@@ -246,13 +258,16 @@ async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
   }
 
   const bibId        = best.BibIds[0];
-  const availability = await checkAvailability(bibId, libraryUrl);
+  const [availability, branchPrefix] = await Promise.all([
+    checkAvailability(bibId, libraryUrl),
+    getBranchPrefix(libraryUrl),
+  ]);
   return {
     status:       "in_catalog",
     matchedBy:    "isbn",
     availability,
     editionLabel: formatLabel(best.MediaFormat),
-    searchUrl:    `${libraryUrl}/v2/record/S125C${bibId}`,
+    searchUrl:    `${libraryUrl}/v2/record/${branchPrefix}${bibId}`,
   };
 }
 
