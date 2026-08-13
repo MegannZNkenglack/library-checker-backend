@@ -316,6 +316,79 @@ router.post("/", async (c) => {
   });
 });
 
+// ── POST /check/batch ──────────────────────────────────────────────────────────
+// Shelf-scan endpoint: checks a whole page of books (from a Goodreads shelf)
+// at once. Quota is intentionally separate from the single-book /check
+// quota (see the shelf_scans table) — free users get 1 manual scan/day
+// regardless of how many books are in it, premium gets unlimited. Coupling
+// this to the existing low daily per-book cap is exactly the UX problem
+// real feedback flagged: passive/bulk checking burns through a small quota
+// fast and confusingly.
+
+const MAX_BATCH_SIZE = 100; // matches Goodreads' largest "per page" option
+const BATCH_CONCURRENCY = 4; // polite to the library site + NoveList, avoids request timeouts
+
+router.post("/batch", async (c) => {
+  const userId = c.get("userId");
+  const tier   = c.get("userTier") || "free";
+  const today  = new Date().toISOString().slice(0, 10);
+
+  if (tier !== "premium") {
+    const row = db.prepare("SELECT count FROM shelf_scans WHERE user_id = ? AND date = ?").get(userId, today);
+    if ((row?.count ?? 0) >= 1) {
+      return c.json({
+        status:  "scan_quota_exceeded",
+        message: "Free plan: 1 shelf scan per day. Upgrade for unlimited.",
+      }, 429);
+    }
+  }
+
+  const body = await c.req.json();
+  const { books, libraryUrl, libraryName } = body;
+
+  if (!libraryUrl) return c.json({ error: "libraryUrl is required" }, 400);
+  if (!Array.isArray(books) || books.length === 0) {
+    return c.json({ error: "books array is required" }, 400);
+  }
+  if (books.length > MAX_BATCH_SIZE) {
+    return c.json({ error: `Too many books in one batch (max ${MAX_BATCH_SIZE})` }, 400);
+  }
+
+  const results = new Array(books.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < books.length) {
+      const i    = nextIndex++;
+      const book = books[i];
+      try {
+        const result = await checkLibrary({
+          isbn: book.isbn, title: book.title, author: book.author,
+          pageFormat: "UNKNOWN", libraryUrl,
+        });
+        results[i] = { ...book, ...result };
+      } catch {
+        results[i] = { ...book, status: "error" };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: BATCH_CONCURRENCY }, worker));
+
+  db.prepare(`
+    INSERT INTO shelf_scans (user_id, date, count) VALUES (?, ?, 1)
+    ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
+  `).run(userId, today);
+
+  const insertHistory = db.prepare(`
+    INSERT INTO check_history (user_id, isbn, title, library_url, library_name, status, search_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const r of results) {
+    insertHistory.run(userId, r.isbn || null, r.title || null, libraryUrl, libraryName || null, r.status, r.searchUrl || null);
+  }
+
+  return c.json({ results });
+});
+
 // ── GET /check/usage ──────────────────────────────────────────────────────────
 
 router.get("/usage", async (c) => {

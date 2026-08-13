@@ -56,6 +56,13 @@ db.exec(`
     checked_at   TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS shelf_scans (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date       TEXT    NOT NULL,                 -- ISO date: "2026-03-25"
+    count      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, date)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_usage_user_date    ON usage(user_id, date);
   CREATE INDEX IF NOT EXISTS idx_history_user       ON check_history(user_id);
   CREATE INDEX IF NOT EXISTS idx_users_email        ON users(email);
