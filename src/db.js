@@ -63,7 +63,26 @@ db.exec(`
     PRIMARY KEY (user_id, date)
   );
 
+  -- Remembers the last known status of each book a premium user has
+  -- scanned, so a nightly job can re-check and notify on changes without
+  -- needing their browser open. Only written for premium users — the
+  -- free tier's manual scan doesn't get ongoing monitoring.
+  CREATE TABLE IF NOT EXISTS shelf_watches (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    library_url      TEXT    NOT NULL,
+    library_name     TEXT,
+    title            TEXT    NOT NULL,
+    author           TEXT,
+    isbn             TEXT,
+    last_status      TEXT,                        -- in_catalog | no_exact_edition | not_found | error
+    last_availability TEXT,                        -- available | on_hold | null
+    last_checked_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, library_url, title, author)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_usage_user_date    ON usage(user_id, date);
+  CREATE INDEX IF NOT EXISTS idx_shelf_watches_user  ON shelf_watches(user_id);
   CREATE INDEX IF NOT EXISTS idx_history_user       ON check_history(user_id);
   CREATE INDEX IF NOT EXISTS idx_users_email        ON users(email);
   CREATE INDEX IF NOT EXISTS idx_users_google       ON users(google_id);

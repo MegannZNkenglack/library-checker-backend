@@ -13,10 +13,13 @@ import { logger }  from "hono/logger";
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 const landingHtml = readFileSync(join(__dirname, "landing.html"), "utf8");
 
-import { requireAuth } from "./auth.js";
-import authRouter      from "./routes/auth.js";
-import checkRouter     from "./routes/check.js";
-import billingRouter   from "./routes/billing.js";
+import cron from "node-cron";
+
+import { requireAuth }     from "./auth.js";
+import authRouter          from "./routes/auth.js";
+import checkRouter         from "./routes/check.js";
+import billingRouter       from "./routes/billing.js";
+import { runNightlyRescan } from "./rescan.js";
 
 const app  = new Hono();
 const PORT = parseInt(process.env.PORT || "3000");
@@ -171,6 +174,17 @@ app.notFound((c) => c.json({ error: "Not found" }, 404));
 app.onError((err, c) => {
   console.error("[Error]", err.message);
   return c.json({ error: "Internal server error" }, 500);
+});
+
+// ── Nightly shelf rescan ──────────────────────────────────────────────────────
+// 3am server time (UTC on Render) — re-checks premium users' watched shelf
+// books and emails them about anything newly available. Runs in-process
+// rather than as a separate Render Cron service, since this is already a
+// persistent (non-serverless) instance; the tradeoff is a scan gets missed
+// if a deploy happens to land at exactly 3am, which is an acceptable risk
+// for a once-daily, non-critical job.
+cron.schedule("0 3 * * *", () => {
+  runNightlyRescan().catch((err) => console.error("[Rescan] Failed:", err.message));
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────

@@ -261,7 +261,7 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
   return { status: "not_found" };
 }
 
-async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
+export async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
   const creds = getNovelISTCreds(libraryUrl);
   if (!creds) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
 
@@ -423,6 +423,28 @@ router.post("/batch", async (c) => {
   `);
   for (const r of results) {
     insertHistory.run(userId, r.isbn || null, r.title || null, libraryUrl, libraryName || null, r.status, r.searchUrl || null);
+  }
+
+  // Only premium users get ongoing monitoring — remember what was scanned
+  // so the nightly rescan job has something to compare against.
+  if (tier === "premium") {
+    const upsertWatch = db.prepare(`
+      INSERT INTO shelf_watches (user_id, library_url, library_name, title, author, isbn, last_status, last_availability, last_checked_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT (user_id, library_url, title, author) DO UPDATE SET
+        isbn              = excluded.isbn,
+        library_name      = excluded.library_name,
+        last_status       = excluded.last_status,
+        last_availability = excluded.last_availability,
+        last_checked_at   = excluded.last_checked_at
+    `);
+    for (const r of results) {
+      if (!r.title) continue;
+      upsertWatch.run(
+        userId, libraryUrl, libraryName || null, r.title, r.author || null,
+        r.isbn || null, r.status, r.availability || null
+      );
+    }
   }
 
   return c.json({ results });
