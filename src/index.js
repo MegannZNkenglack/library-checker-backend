@@ -167,6 +167,48 @@ app.use("/check/*", requireAuth);
 app.route("/check",   checkRouter);
 app.route("/billing", billingRouter);
 
+// ── TEMPORARY: one-time test of the real nightly rescan + email flow ────────
+// Seeds a "not yet available" watch for a known book on the given premium
+// account, immediately "fixes" it to look newly-available, then runs the
+// real rescan job — so a real email either does or doesn't land, instead of
+// waiting for the 3am cron. Remove this route right after use.
+
+app.post("/admin/test-rescan", async (c) => {
+  if (c.req.header("X-Test-Secret") !== "b99692810ab2a9fe746e55a705e4734e707f37aad42d22fb") {
+    return c.json({ error: "Unauthorised" }, 401);
+  }
+
+  const { email } = await c.req.json();
+  const { default: db } = await import("./db.js");
+
+  const user = db.prepare("SELECT id, tier FROM users WHERE email = ?").get(email);
+  if (!user) return c.json({ error: "No user with that email" }, 404);
+  if (user.tier !== "premium") return c.json({ error: "User is not premium — rescan only watches premium accounts" }, 400);
+
+  const libraryUrl  = "https://hpl.bibliocommons.com";
+  const libraryName = "Hamilton Public Library";
+
+  db.prepare(`
+    INSERT INTO shelf_watches (user_id, library_url, library_name, title, author, isbn, last_status, last_availability, last_checked_at)
+    VALUES (?, ?, ?, 'Red Rising', 'Pierce Brown', '0000000000000', 'not_found', NULL, datetime('now'))
+    ON CONFLICT (user_id, library_url, title, author) DO UPDATE SET
+      isbn = '0000000000000', last_status = 'not_found', last_availability = NULL
+  `).run(user.id, libraryUrl, libraryName);
+
+  // "Fix" the ISBN to the real one — simulates the book becoming available
+  // between last night's check and tonight's, without waiting for a real
+  // catalog change.
+  db.prepare(`
+    UPDATE shelf_watches SET isbn = '9780345539809'
+    WHERE user_id = ? AND library_url = ? AND title = 'Red Rising'
+  `).run(user.id, libraryUrl);
+
+  const { runNightlyRescan } = await import("./rescan.js");
+  await runNightlyRescan();
+
+  return c.json({ ok: true, message: "Rescan ran — check the Render logs and your inbox." });
+});
+
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
