@@ -217,9 +217,17 @@ function resultTitleLooksRight(html, matchIndex, searchTitle) {
     .toLowerCase();
 
   const cleanTitle = (searchTitle || "").replace(/\s*\(.*?\)\s*$/, "").trim().toLowerCase();
-  const words = cleanTitle.split(/\s+/).filter(w => w.length > 2);
+  const words = cleanTitle.split(/\s+/).filter(Boolean);
   if (!words.length) return true; // nothing meaningful to verify against
 
+  // Take the first few words AS WRITTEN — don't drop short ones like "of"
+  // or "the" from the middle. Dropping them and rejoining what's left
+  // fabricates a phrase that never appears in the real title (e.g. "court
+  // thorns and" from "A Court of Thorns and Roses" once "of" is removed),
+  // which rejected a book the library actually had. Checking a short
+  // leading run of words (not the whole title) is still what allows an
+  // edition-title difference at the end (e.g. "Sorcerer's" vs
+  // "Philosopher's Stone") to pass.
   const phrase = words.slice(0, Math.min(3, words.length)).join(" ");
   return text.includes(phrase);
 }
