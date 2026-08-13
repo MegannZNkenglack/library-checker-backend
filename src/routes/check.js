@@ -141,8 +141,14 @@ async function novelistFetch(endpoint, creds) {
 }
 
 function titleSearchUrl(title, author, libraryUrl) {
-  const clean = (title || "").replace(/\s*\(.*?\)\s*$/, "").trim();
-  const q     = author ? `${clean} ${author}` : clean;
+  // Strip trailing asterisks and similar UI artifacts (Goodreads' shelf
+  // view appends a "*" to some author names) before they end up in an
+  // actual search query — an unsanitised "*" sent to a library's search
+  // box once returned a completely unrelated book as the top result.
+  const sanitize   = (s) => (s || "").replace(/\*+\s*$/, "").trim();
+  const clean      = sanitize(title).replace(/\s*\(.*?\)\s*$/, "").trim();
+  const cleanAuthor = sanitize(author);
+  const q = cleanAuthor ? `${clean} ${cleanAuthor}` : clean;
   return `${libraryUrl}/search?q=${encodeURIComponent(q)}&type=smart`;
 }
 
@@ -188,6 +194,36 @@ async function checkAvailability(bibId, libraryUrl) {
 // confirms the actual edition — treated as in_catalog. A broader title
 // search only confirms "the library has something for this title," not
 // that it's the same edition, so that stays no_exact_edition.
+// Confirms a search result actually looks like the book we searched for,
+// not just that /some/ result exists. BiblioCommons' "smart"/"title" search
+// does broad relevance matching across every format (books, music, movies,
+// ...) — a title like "Die for You" can match a completely unrelated title
+// ("101 Board Games to Try Before You Die") on shared words alone. This
+// only checks the title text; it does NOT catch a same-titled result of a
+// different format (e.g. a song with the identical title) — that needs
+// actual format filtering, which BiblioCommons doesn't expose reliably on
+// this endpoint as far as we've found.
+function resultTitleLooksRight(html, matchIndex, searchTitle) {
+  // 20000 chars, not a smaller window — each result's format-icon SVG
+  // (long coordinate-heavy path data) sits between the record link and the
+  // actual title text, and a too-small window can get swallowed entirely
+  // by that icon before ever reaching real content.
+  const text = html.slice(matchIndex, matchIndex + 20000)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  const cleanTitle = (searchTitle || "").replace(/\s*\(.*?\)\s*$/, "").trim().toLowerCase();
+  const words = cleanTitle.split(/\s+/).filter(w => w.length > 2);
+  if (!words.length) return true; // nothing meaningful to verify against
+
+  const phrase = words.slice(0, Math.min(3, words.length)).join(" ");
+  return text.includes(phrase);
+}
+
 async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
   // BiblioCommons no longer renders a data-bib-id attribute — current
   // markup embeds real result links as /v2/record/S125C<bibId> instead.
@@ -214,8 +250,11 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
   if (title) {
     const url = titleSearchUrl(title, author, libraryUrl);
     try {
-      const html = await (await fetch(url)).text();
-      if (recordLinkPattern.test(html)) return { status: "no_exact_edition", searchUrl: url };
+      const html  = await (await fetch(url)).text();
+      const match = html.match(recordLinkPattern);
+      if (match && resultTitleLooksRight(html, match.index, title)) {
+        return { status: "no_exact_edition", searchUrl: url };
+      }
     } catch {}
   }
 
