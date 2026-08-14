@@ -145,7 +145,7 @@ function titleSearchUrl(title, author, libraryUrl) {
   // view appends a "*" to some author names) before they end up in an
   // actual search query — an unsanitised "*" sent to a library's search
   // box once returned a completely unrelated book as the top result.
-  const sanitize   = (s) => (s || "").replace(/\*+\s*$/, "").trim();
+  const sanitize   = (s) => stripInvisibleChars((s || "")).replace(/\*+\s*$/, "").trim();
   const clean      = sanitize(title).replace(/\s*\(.*?\)\s*$/, "").trim();
   const cleanAuthor = sanitize(author);
   const q = cleanAuthor ? `${clean} ${cleanAuthor}` : clean;
@@ -214,12 +214,20 @@ function stripApostrophes(s) {
   return s.replace(/&#x27;|&#39;|&apos;|&rsquo;|&#8217;|['’]/gi, "");
 }
 
+// Strips invisible zero-width characters (seen: U+200B embedded in
+// Goodreads' own title text) that survive whitespace-collapsing since
+// they aren't officially "whitespace", but silently break exact-text
+// matching either in a search query or in the scraped result.
+function stripInvisibleChars(s) {
+  return s.replace(/[\u200B\u200C\u200D\uFEFF\u2060]/g, "");
+}
+
 function resultTitleLooksRight(html, matchIndex, searchTitle) {
   // 20000 chars, not a smaller window — each result's format-icon SVG
   // (long coordinate-heavy path data) sits between the record link and the
   // actual title text, and a too-small window can get swallowed entirely
   // by that icon before ever reaching real content.
-  const text = stripApostrophes(html.slice(matchIndex, matchIndex + 20000))
+  const text = stripInvisibleChars(stripApostrophes(html.slice(matchIndex, matchIndex + 20000)))
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
@@ -227,7 +235,7 @@ function resultTitleLooksRight(html, matchIndex, searchTitle) {
     .replace(/\s+/g, " ")
     .toLowerCase();
 
-  const cleanTitle = stripApostrophes((searchTitle || "").replace(/\s*\(.*?\)\s*$/, "")).trim().toLowerCase();
+  const cleanTitle = stripInvisibleChars(stripApostrophes((searchTitle || "").replace(/\s*\(.*?\)\s*$/, ""))).trim().toLowerCase();
   const words = cleanTitle.split(/\s+/).filter(Boolean);
   if (!words.length) return true; // nothing meaningful to verify against
 
