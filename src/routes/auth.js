@@ -22,11 +22,19 @@ function safeUser(user) {
 
 // ── POST /auth/signup ─────────────────────────────────────────────────────────
 
+// Practical email format check — not full RFC 5322 (which is notoriously
+// permissive/complex), just enough to catch the obvious cases: something,
+// an @, a domain, a dot, a TLD.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 router.post("/signup", async (c) => {
   const { email, password, name } = await c.req.json();
 
   if (!email || !password) {
     return c.json({ error: "Email and password are required" }, 400);
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    return c.json({ error: "Please enter a valid email address" }, 400);
   }
   if (password.length < 8) {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
