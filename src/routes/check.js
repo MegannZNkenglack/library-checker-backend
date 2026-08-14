@@ -203,12 +203,23 @@ async function checkAvailability(bibId, libraryUrl) {
 // different format (e.g. a song with the identical title) — that needs
 // actual format filtering, which BiblioCommons doesn't expose reliably on
 // this endpoint as far as we've found.
+// Strips every apostrophe-like sequence — straight quote, curly quote, and
+// the HTML-entity forms a scraped page might still have (the raw markup
+// renders possessives/contractions as literal "&#x27;" rather than an
+// actual apostrophe character). Titles with a possessive or contraction
+// ("Handmaid's Tale", "Sorcerer's Stone", "Charlotte's Web", ...) would
+// otherwise never match, since one side has a real apostrophe and the
+// other still has the un-decoded entity text.
+function stripApostrophes(s) {
+  return s.replace(/&#x27;|&#39;|&apos;|&rsquo;|&#8217;|['’]/gi, "");
+}
+
 function resultTitleLooksRight(html, matchIndex, searchTitle) {
   // 20000 chars, not a smaller window — each result's format-icon SVG
   // (long coordinate-heavy path data) sits between the record link and the
   // actual title text, and a too-small window can get swallowed entirely
   // by that icon before ever reaching real content.
-  const text = html.slice(matchIndex, matchIndex + 20000)
+  const text = stripApostrophes(html.slice(matchIndex, matchIndex + 20000))
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
@@ -216,7 +227,7 @@ function resultTitleLooksRight(html, matchIndex, searchTitle) {
     .replace(/\s+/g, " ")
     .toLowerCase();
 
-  const cleanTitle = (searchTitle || "").replace(/\s*\(.*?\)\s*$/, "").trim().toLowerCase();
+  const cleanTitle = stripApostrophes((searchTitle || "").replace(/\s*\(.*?\)\s*$/, "")).trim().toLowerCase();
   const words = cleanTitle.split(/\s+/).filter(Boolean);
   if (!words.length) return true; // nothing meaningful to verify against
 
