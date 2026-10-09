@@ -252,8 +252,32 @@ router.post("/login", async (c) => {
 // ── GET /auth/google ──────────────────────────────────────────────────────────
 // Step 1: redirect the browser to Google's OAuth consent screen.
 
+// The extension that started a sign-in (published or dev build) is the one the
+// token must be returned to, so its ID travels through Google in "state". Only
+// IDs we already trust (EXTENSION_ID + the chrome-extension:// entries in
+// ALLOWED_ORIGINS) are honoured, so this can't be used as an open redirect.
+function allowedExtensionIds() {
+  const ids = new Set();
+  if (process.env.EXTENSION_ID) ids.add(process.env.EXTENSION_ID);
+  for (const origin of (process.env.ALLOWED_ORIGINS || "").split(",")) {
+    const m = origin.trim().match(/^chrome-extension:\/\/([a-p]{32})$/);
+    if (m) ids.add(m[1]);
+  }
+  return ids;
+}
+
+// "https://<id>.chromiumapp.org/oauth" -> "<id>" when trusted, otherwise null.
+function trustedExtensionId(redirectUrl) {
+  try {
+    const m = new URL(redirectUrl).hostname.match(/^([a-p]{32})\.chromiumapp\.org$/);
+    return m && allowedExtensionIds().has(m[1]) ? m[1] : null;
+  } catch { return null; }
+}
+
 router.get("/google", (c) => {
+  const extensionId = trustedExtensionId(c.req.query("extension_redirect")) || process.env.EXTENSION_ID;
   const params = new URLSearchParams({
+    state:         extensionId,
     client_id:     process.env.GOOGLE_CLIENT_ID,
     redirect_uri:  process.env.GOOGLE_REDIRECT_URI,
     response_type: "code",
@@ -334,7 +358,9 @@ router.get("/google/callback", async (c) => {
   // The extension listens for this in the background service worker.
   // Format: https://your-backend.railway.app/auth/google/callback#token=JWT
   // The extension popup's launchWebAuthFlow will capture the redirect URL.
-  const extensionCallbackUrl = `https://${process.env.EXTENSION_ID}.chromiumapp.org/oauth#token=${jwt}`;
+  const stateId = c.req.query("state");
+  const returnId = stateId && allowedExtensionIds().has(stateId) ? stateId : process.env.EXTENSION_ID;
+  const extensionCallbackUrl = `https://${returnId}.chromiumapp.org/oauth#token=${jwt}`;
   return c.redirect(extensionCallbackUrl);
 });
 
