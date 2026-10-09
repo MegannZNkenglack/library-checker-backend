@@ -21,7 +21,7 @@ const DAILY_LIMITS = {
 // ignored (not an error) so a downgraded account with a long saved list still works.
 const MAX_LIBRARIES = {
   free:    3,
-  premium: 10,
+  premium: 5,
 };
 const MULTI_LIBRARY_CONCURRENCY = 3;
 
