@@ -6,6 +6,7 @@
 
 import { Hono } from "hono";
 import db        from "../db.js";
+import { checkDigital } from "../overdrive.js";
 
 const router = new Hono();
 
@@ -15,6 +16,19 @@ const DAILY_LIMITS = {
   free:    5,
   premium: Infinity,
 };
+
+// Free shelf scans cover only the first N books of the page; premium has no cap.
+const FREE_SHELF_SCAN_LIMIT = 10;
+
+// The server fetches whatever libraryUrl the client sends, so only real
+// BiblioCommons sites are accepted — otherwise a signed-in user could point the
+// server at internal addresses (SSRF).
+function isAllowedLibraryUrl(libraryUrl) {
+  try {
+    const u = new URL(libraryUrl);
+    return u.protocol === "https:" && /^[a-z0-9-]+\.bibliocommons\.com$/i.test(u.hostname);
+  } catch { return false; }
+}
 
 // ── NoveList credentials from env ─────────────────────────────────────────────
 // Env vars follow the pattern: NOVELIST_<SUBDOMAIN_UPPERCASE>
@@ -158,29 +172,60 @@ function titleSearchUrl(title, author, libraryUrl) {
 // (e.g. Hamilton is S125C, Toronto is S234C) — without it the URL 500s.
 // The prefix is just "S" + the library's own numeric ID + "C", which every
 // BiblioCommons site exposes in its page's dataLayer script.
+const branchPrefixCache = new Map();
+
 async function getBranchPrefix(libraryUrl) {
+  if (branchPrefixCache.has(libraryUrl)) return branchPrefixCache.get(libraryUrl);
   try {
     const html = await (await fetch(libraryUrl)).text();
     const match = html.match(/"bc\.libraryId":(\d+)/);
-    return match ? `S${match[1]}C` : "";
+    if (!match) return "";
+    const prefix = `S${match[1]}C`;
+    branchPrefixCache.set(libraryUrl, prefix); // only cache successes
+    return prefix;
   } catch { return ""; }
 }
 
+// Typical physical loan period, used only to turn "N people waiting for M
+// copies" into a rough wait. Libraries differ, so the result is an estimate.
+const PHYSICAL_LOAN_DAYS = 21;
+
+// BiblioCommons' own public gateway reports real copy counts per record
+// (the old per-library /v2/records/.../availability URL now just returns an
+// HTML shell). The gateway path uses the library's subdomain ("hpl" for
+// hpl.bibliocommons.com) and the FULL record id including the branch prefix.
+// Returns null whenever it can't tell — callers treat that as "unknown".
 async function checkAvailability(bibId, libraryUrl) {
   try {
-    const url  = `${libraryUrl}/v2/records/${bibId}/availability?locale=en-CA`;
-    const resp = await fetch(url, { headers: { Accept: "application/json" } });
+    const key = new URL(libraryUrl).hostname.split(".")[0];
+    const id  = /^S\d+C/.test(String(bibId)) ? String(bibId) : `${await getBranchPrefix(libraryUrl)}${bibId}`;
+    if (!key || !/^S\d+C\d+$/.test(id)) return null;
+
+    const resp = await fetch(`https://gateway.bibliocommons.com/v2/libraries/${key}/bibs/${id}/availability`, {
+      headers: { Accept: "application/json" },
+    });
     if (!resp.ok) return null;
-    const data = await resp.json();
-    const av   = data?.availability || data?.entities?.bibs?.[bibId]?.availability;
+    const av = (await resp.json())?.entities?.availabilities?.[id];
     if (!av) return null;
-    const n = av.availableItems ?? av.available_items ?? av.availableCopies ?? null;
-    if (n !== null) return n > 0 ? "available" : "on_hold";
-    const s = (av.status || "").toLowerCase();
-    if (s.includes("available") && !s.includes("not")) return "available";
-    if (s.includes("checkout") || s.includes("hold"))  return "on_hold";
+
+    const availableCopies = Number(av.availableCopies) || 0;
+    const totalCopies     = Number(av.totalCopies)     || 0;
+    const heldCopies      = Number(av.heldCopies)      || 0;
+
+    if (availableCopies > 0) return { state: "available", availableCopies, totalCopies, heldCopies };
+    if (totalCopies > 0) {
+      const cycles = Math.ceil((heldCopies + 1) / totalCopies);
+      return { state: "on_hold", availableCopies, totalCopies, heldCopies, estimatedWaitDays: cycles * PHYSICAL_LOAN_DAYS };
+    }
     return null;
   } catch { return null; }
+}
+
+// Flattens an availability result into the fields every check result carries.
+function availabilityFields(av) {
+  if (!av) return { availability: null };
+  const { state, ...holds } = av;
+  return { availability: state, holds };
 }
 
 // ── Main check logic ──────────────────────────────────────────────────────────
@@ -263,11 +308,11 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
       const match = html.match(recordLinkPattern);
       if (match) {
         const numericId    = match[1].match(/\d+$/)?.[0];
-        const availability = numericId ? await checkAvailability(numericId, libraryUrl) : null;
+        const av = numericId ? await checkAvailability(numericId, libraryUrl) : null;
         return {
           status:    "in_catalog",
           matchedBy: "isbn_scrape",
-          availability,
+          ...availabilityFields(av),
           searchUrl: `${libraryUrl}${match[0]}`,
         };
       }
@@ -288,7 +333,7 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
   return { status: "not_found" };
 }
 
-export async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl }) {
+async function checkPhysical({ isbn, title, author, pageFormat, libraryUrl }) {
   const creds = getNovelISTCreds(libraryUrl);
   if (!creds) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
 
@@ -324,17 +369,29 @@ export async function checkLibrary({ isbn, title, author, pageFormat, libraryUrl
   }
 
   const bibId        = best.BibIds[0];
-  const [availability, branchPrefix] = await Promise.all([
+  const [av, branchPrefix] = await Promise.all([
     checkAvailability(bibId, libraryUrl),
     getBranchPrefix(libraryUrl),
   ]);
   return {
     status:       "in_catalog",
     matchedBy:    "isbn",
-    availability,
+    ...availabilityFields(av),
     editionLabel: formatLabel(best.MediaFormat),
     searchUrl:    `${libraryUrl}/v2/record/${branchPrefix}${bibId}`,
   };
+}
+
+// Physical (BiblioCommons) and digital (Libby/OverDrive) lookups run side by
+// side. Digital never changes the physical status — it's an extra "digital"
+// field, present only when the book exists in the library's digital catalog.
+export async function checkLibrary(args) {
+  const [physical, digital] = await Promise.all([
+    checkPhysical(args),
+    checkDigital(args).catch(() => null),
+  ]);
+  const hasDigital = digital && (digital.ebook || digital.audiobook);
+  return hasDigital ? { ...physical, digital } : physical;
 }
 
 // ── POST /check ───────────────────────────────────────────────────────────────
@@ -358,8 +415,9 @@ router.post("/", async (c) => {
   const { isbn, title, author, pageFormat, libraryUrl, libraryName } = body;
 
   if (!libraryUrl) return c.json({ error: "libraryUrl is required" }, 400);
+  if (!isAllowedLibraryUrl(libraryUrl)) return c.json({ error: "Unsupported library" }, 400);
 
-  const result = await checkLibrary({ isbn, title, author, pageFormat, libraryUrl });
+  const result = await checkLibrary({ isbn, title, author, pageFormat, libraryUrl, libraryName });
 
   // Increment usage
   db.prepare(`
@@ -413,12 +471,17 @@ router.post("/batch", async (c) => {
   const { books, libraryUrl, libraryName } = body;
 
   if (!libraryUrl) return c.json({ error: "libraryUrl is required" }, 400);
+  if (!isAllowedLibraryUrl(libraryUrl)) return c.json({ error: "Unsupported library" }, 400);
   if (!Array.isArray(books) || books.length === 0) {
     return c.json({ error: "books array is required" }, 400);
   }
   if (books.length > MAX_BATCH_SIZE) {
     return c.json({ error: `Too many books in one batch (max ${MAX_BATCH_SIZE})` }, 400);
   }
+
+  const totalRequested = books.length;
+  const freeCapped = tier !== "premium" && books.length > FREE_SHELF_SCAN_LIMIT;
+  if (freeCapped) books.length = FREE_SHELF_SCAN_LIMIT;
 
   const results = new Array(books.length);
   let nextIndex = 0;
@@ -429,7 +492,7 @@ router.post("/batch", async (c) => {
       try {
         const result = await checkLibrary({
           isbn: book.isbn, title: book.title, author: book.author,
-          pageFormat: "UNKNOWN", libraryUrl,
+          pageFormat: "UNKNOWN", libraryUrl, libraryName,
         });
         results[i] = { ...book, ...result };
       } catch {
@@ -474,7 +537,13 @@ router.post("/batch", async (c) => {
     }
   }
 
-  return c.json({ results });
+  return c.json({
+    results,
+    scanned:   results.length,
+    total:     totalRequested,
+    truncated: freeCapped,
+    limit:     tier === "premium" ? null : FREE_SHELF_SCAN_LIMIT,
+  });
 });
 
 // ── GET /check/usage ──────────────────────────────────────────────────────────

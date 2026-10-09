@@ -89,6 +89,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_users_stripe_cust  ON users(stripe_customer_id);
 `);
 
+// ── Migrations ─────────────────────────────────────────────────────────────────
+// email_verified: accounts that existed before verification was introduced are
+// grandfathered in as verified (the column is added with DEFAULT 1 exactly once,
+// then new signups explicitly insert 0).
+
+const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+if (!userCols.includes("email_verified")) {
+  db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1");
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS email_verifications (
+    user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash    TEXT    NOT NULL,
+    expires_at   INTEGER NOT NULL,   -- unix ms
+    attempts     INTEGER NOT NULL DEFAULT 0,
+    last_sent_at INTEGER NOT NULL    -- unix ms
+  );
+
+  CREATE TABLE IF NOT EXISTS overdrive_map (
+    library_url   TEXT PRIMARY KEY,
+    overdrive_key TEXT,                              -- null = no OverDrive library found
+    resolved_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS password_resets (
+    user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash    TEXT    NOT NULL,
+    expires_at   INTEGER NOT NULL,
+    attempts     INTEGER NOT NULL DEFAULT 0,
+    last_sent_at INTEGER NOT NULL
+  );
+`);
+
 console.log("Database initialised at:", DB_PATH);
 
 export default db;

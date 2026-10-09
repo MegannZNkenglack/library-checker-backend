@@ -38,7 +38,7 @@ export async function runNightlyRescan() {
       try {
         result = await checkLibrary({
           isbn: w.isbn, title: w.title, author: w.author,
-          pageFormat: "UNKNOWN", libraryUrl: w.library_url,
+          pageFormat: "UNKNOWN", libraryUrl: w.library_url, libraryName: w.library_name,
         });
       } catch {
         continue; // leave last_status as-is, try again next night

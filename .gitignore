@@ -4,3 +4,6 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# src/data holds checked-in reference data (OverDrive library directory); only the runtime data/ folder at the repo root is ignored
+!src/data/

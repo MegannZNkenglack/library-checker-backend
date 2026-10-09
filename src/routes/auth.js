@@ -4,7 +4,9 @@
 import { Hono }   from "hono";
 import bcrypt      from "bcryptjs";
 import db          from "../db.js";
+import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { createToken, requireAuth } from "../auth.js";
+import { sendVerificationEmail, sendPasswordResetEmail, emailConfigured } from "../email.js";
 
 const router = new Hono();
 
@@ -20,12 +22,57 @@ function safeUser(user) {
   };
 }
 
-// ── POST /auth/signup ─────────────────────────────────────────────────────────
-
 // Practical email format check — not full RFC 5322 (which is notoriously
 // permissive/complex), just enough to catch the obvious cases: something,
 // an @, a domain, a dot, a TLD.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ── Email verification codes ─────────────────────────────────────────────────
+
+const CODE_TTL_MS        = 10 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const MAX_CODE_ATTEMPTS  = 5;
+
+function hashCode(userId, code) {
+  return createHmac("sha256", process.env.JWT_SECRET).update(userId + ":" + code).digest("hex");
+}
+
+// Creates a fresh code (replacing any previous one) and emails it.
+// Returns false if skipped because a code was sent within the cooldown window.
+// `table` is only ever one of two internal constants, never user input.
+async function issueCode(table, user, send) {
+  const now  = Date.now();
+  const prev = db.prepare(`SELECT last_sent_at FROM ${table} WHERE user_id = ?`).get(user.id);
+  if (prev && now - prev.last_sent_at < RESEND_COOLDOWN_MS) return false;
+
+  const code = String(randomInt(0, 1000000)).padStart(6, "0");
+  db.prepare(`
+    INSERT INTO ${table} (user_id, code_hash, expires_at, attempts, last_sent_at)
+    VALUES (?, ?, ?, 0, ?)
+    ON CONFLICT (user_id) DO UPDATE SET
+      code_hash = excluded.code_hash, expires_at = excluded.expires_at,
+      attempts = 0, last_sent_at = excluded.last_sent_at
+  `).run(user.id, hashCode(user.id, code), now + CODE_TTL_MS, now);
+
+  await send(user.email, code);
+  return true;
+}
+
+const issueVerificationCode = (user) => issueCode("email_verifications", user, sendVerificationEmail);
+const issueResetCode        = (user) => issueCode("password_resets",     user, sendPasswordResetEmail);
+
+function verificationRequiredResponse(c, email, status) {
+  return c.json({ verificationRequired: true, email, message: "Check your email for a 6-digit verification code." }, status);
+}
+
+// ── POST /auth/signup ─────────────────────────────────────────────────────────
+
+// Email verification at signup is switched on with REQUIRE_EMAIL_VERIFICATION=true.
+// It stays off until the extension version that has the code-entry screen is
+// live in the Chrome Web Store — older versions expect a login token straight
+// back from signup and would silently fail. Forgot-password and the
+// verify/resend endpoints work regardless of this setting.
+const verificationRequired = () => process.env.REQUIRE_EMAIL_VERIFICATION === "true";
 
 router.post("/signup", async (c) => {
   const { email, password, name } = await c.req.json();
@@ -39,23 +86,139 @@ router.post("/signup", async (c) => {
   if (password.length < 8) {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
   }
-
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email.toLowerCase());
-  if (existing) {
-    return c.json({ error: "An account with this email already exists" }, 409);
+  if (verificationRequired() && !emailConfigured() && process.env.NODE_ENV === "production") {
+    return c.json({ error: "Sign-up is temporarily unavailable. Please try again later." }, 503);
   }
 
+  const normalised   = email.toLowerCase();
   const passwordHash = await bcrypt.hash(password, 12);
+  const existing     = db.prepare("SELECT * FROM users WHERE email = ?").get(normalised);
 
-  const result = db.prepare(`
-    INSERT INTO users (email, password_hash, name)
-    VALUES (?, ?, ?)
-  `).run(email.toLowerCase(), passwordHash, name || null);
+  let user;
+  if (existing && existing.email_verified) {
+    return c.json({ error: "An account with this email already exists" }, 409);
+  } else if (existing) {
+    // Never-verified signup being retried: whoever proves control of the inbox
+    // owns the account, so the latest password/name win.
+    db.prepare("UPDATE users SET password_hash = ?, name = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(passwordHash, name || existing.name, existing.id);
+    user = db.prepare("SELECT * FROM users WHERE id = ?").get(existing.id);
+  } else {
+    const result = db.prepare("INSERT INTO users (email, password_hash, name, email_verified) VALUES (?, ?, ?, ?)")
+      .run(normalised, passwordHash, name || null, verificationRequired() ? 0 : 1);
+    user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  }
 
-  const user  = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
+  if (verificationRequired() || !user.email_verified) {
+    await issueVerificationCode(user);
+    return verificationRequiredResponse(c, user.email, 201);
+  }
+
   const token = await createToken({ sub: String(user.id), email: user.email });
-
   return c.json({ token, user: safeUser(user) }, 201);
+});
+
+// ── POST /auth/verify ─────────────────────────────────────────────────────────
+
+router.post("/verify", async (c) => {
+  const { email, code } = await c.req.json();
+  if (!email || !code) return c.json({ error: "Email and code are required" }, 400);
+
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const rec  = user && db.prepare("SELECT * FROM email_verifications WHERE user_id = ?").get(user.id);
+
+  if (user?.email_verified) {
+    return c.json({ error: "This email is already verified. Please sign in." }, 400);
+  }
+  if (!user || !rec) {
+    return c.json({ error: "Invalid or expired code. Request a new one." }, 400);
+  }
+  if (Date.now() > rec.expires_at) {
+    return c.json({ error: "That code has expired. Request a new one." }, 400);
+  }
+  if (rec.attempts >= MAX_CODE_ATTEMPTS) {
+    return c.json({ error: "Too many incorrect attempts. Request a new code." }, 429);
+  }
+
+  const given    = Buffer.from(hashCode(user.id, String(code).trim()));
+  const expected = Buffer.from(rec.code_hash);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    db.prepare("UPDATE email_verifications SET attempts = attempts + 1 WHERE user_id = ?").run(user.id);
+    return c.json({ error: "Incorrect code. Please try again." }, 400);
+  }
+
+  db.prepare("UPDATE users SET email_verified = 1, updated_at = datetime('now') WHERE id = ?").run(user.id);
+  db.prepare("DELETE FROM email_verifications WHERE user_id = ?").run(user.id);
+
+  const verified = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
+  const token    = await createToken({ sub: String(verified.id), email: verified.email });
+  return c.json({ token, user: safeUser(verified) });
+});
+
+// ── POST /auth/resend ─────────────────────────────────────────────────────────
+// Always answers 200 so it can't be used to discover which emails have accounts.
+
+router.post("/resend", async (c) => {
+  const { email } = await c.req.json();
+  if (!email) return c.json({ error: "Email is required" }, 400);
+
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  if (user && !user.email_verified) await issueVerificationCode(user);
+  return c.json({ ok: true });
+});
+
+// ── POST /auth/forgot ─────────────────────────────────────────────────────────
+// Always answers 200 so it can't be used to discover which emails have accounts.
+// Only verified accounts get a reset code (an unverified signup can simply sign up again).
+
+router.post("/forgot", async (c) => {
+  const { email } = await c.req.json();
+  if (!email) return c.json({ error: "Email is required" }, 400);
+
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  if (user && user.email_verified) await issueResetCode(user);
+  return c.json({ ok: true });
+});
+
+// ── POST /auth/reset ──────────────────────────────────────────────────────────
+
+router.post("/reset", async (c) => {
+  const { email, code, newPassword } = await c.req.json();
+  if (!email || !code || !newPassword) {
+    return c.json({ error: "Email, code and new password are required" }, 400);
+  }
+  if (newPassword.length < 8) {
+    return c.json({ error: "Password must be at least 8 characters" }, 400);
+  }
+
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const rec  = user && db.prepare("SELECT * FROM password_resets WHERE user_id = ?").get(user.id);
+
+  if (!user || !rec) {
+    return c.json({ error: "Invalid or expired code. Request a new one." }, 400);
+  }
+  if (Date.now() > rec.expires_at) {
+    return c.json({ error: "That code has expired. Request a new one." }, 400);
+  }
+  if (rec.attempts >= MAX_CODE_ATTEMPTS) {
+    return c.json({ error: "Too many incorrect attempts. Request a new code." }, 429);
+  }
+
+  const given    = Buffer.from(hashCode(user.id, String(code).trim()));
+  const expected = Buffer.from(rec.code_hash);
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    db.prepare("UPDATE password_resets SET attempts = attempts + 1 WHERE user_id = ?").run(user.id);
+    return c.json({ error: "Incorrect code. Please try again." }, 400);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  db.prepare("UPDATE users SET password_hash = ?, email_verified = 1, updated_at = datetime('now') WHERE id = ?")
+    .run(passwordHash, user.id);
+  db.prepare("DELETE FROM password_resets WHERE user_id = ?").run(user.id);
+
+  const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
+  const token   = await createToken({ sub: String(updated.id), email: updated.email });
+  return c.json({ token, user: safeUser(updated) });
 });
 
 // ── POST /auth/login ──────────────────────────────────────────────────────────
@@ -75,6 +238,11 @@ router.post("/login", async (c) => {
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
     return c.json({ error: "Invalid email or password" }, 401);
+  }
+
+  if (!user.email_verified) {
+    await issueVerificationCode(user);
+    return verificationRequiredResponse(c, user.email, 403);
   }
 
   const token = await createToken({ sub: String(user.id), email: user.email });
@@ -143,14 +311,18 @@ router.get("/google/callback", async (c) => {
     user = db.prepare("SELECT * FROM users WHERE email = ?").get(profile.email.toLowerCase());
     if (user) {
       // Link Google to existing account
-      db.prepare("UPDATE users SET google_id = ?, name = ?, updated_at = datetime('now') WHERE id = ?")
+      // Google has verified this inbox. If the existing account was never
+      // verified, drop its password — it may have been set by someone else.
+      db.prepare("UPDATE users SET google_id = ?, name = ?, email_verified = 1, " +
+        "password_hash = CASE WHEN email_verified = 0 THEN NULL ELSE password_hash END, " +
+        "updated_at = datetime('now') WHERE id = ?")
         .run(profile.id, user.name || profile.name, user.id);
       user = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
     } else {
       // Create new account
       const result = db.prepare(`
-        INSERT INTO users (email, google_id, name)
-        VALUES (?, ?, ?)
+        INSERT INTO users (email, google_id, name, email_verified)
+        VALUES (?, ?, ?, 1)
       `).run(profile.email.toLowerCase(), profile.id, profile.name || null);
       user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
     }

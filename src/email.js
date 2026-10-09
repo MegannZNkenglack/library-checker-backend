@@ -1,12 +1,27 @@
 // src/email.js
-// Sends the "newly available" notification email via Resend for the
-// nightly shelf-rescan job. If RESEND_API_KEY isn't set, this logs and
-// skips instead of crashing — lets the rest of the app run fine without it
-// during local dev or before the key's been added.
+// Outgoing email: verification codes and "newly available" notifications.
+//
+// Transport is picked from env vars:
+//   SMTP_USER + SMTP_PASS  -> SMTP via Nodemailer (defaults to Gmail; works for any recipient)
+//   RESEND_API_KEY         -> Resend (only reaches arbitrary recipients once a domain is verified)
+//   neither                -> log and skip, so local dev and CI never crash
 
+import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
+const smtp = (process.env.SMTP_USER && process.env.SMTP_PASS)
+  ? nodemailer.createTransport({
+      host:   process.env.SMTP_HOST || "smtp.gmail.com",
+      port:   Number(process.env.SMTP_PORT || 465),
+      secure: (process.env.SMTP_SECURE ?? "true") !== "false",
+      auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    })
+  : null;
+
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+const FROM = process.env.NOTIFY_FROM_EMAIL
+  || (smtp ? `Library Checker <${process.env.SMTP_USER}>` : "onboarding@resend.dev");
 
 function escapeHtml(str) {
   return String(str)
@@ -16,13 +31,64 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+export function emailConfigured() {
+  return Boolean(smtp || resend);
+}
+
+// Returns true if the message was handed to a transport, false otherwise.
+async function sendMail({ to, subject, html }) {
+  try {
+    if (smtp) {
+      await smtp.sendMail({ from: FROM, to, subject, html });
+      return true;
+    }
+    if (resend) {
+      const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+      if (error) throw new Error(error.message);
+      return true;
+    }
+  } catch (err) {
+    console.error(`[Email] Failed to send to ${to}:`, err.message);
+    return false;
+  }
+  console.log(`[Email] No email transport configured — would have sent "${subject}" to ${to}`);
+  return false;
+}
+
+export async function sendVerificationEmail(toEmail, code) {
+  // Local dev convenience only: with no transport, print the code so signup
+  // can be tested end-to-end. Never logged in production.
+  if (!emailConfigured() && process.env.NODE_ENV !== "production") {
+    console.log(`[Email] DEV verification code for ${toEmail}: ${code}`);
+  }
+  return sendMail({
+    to: toEmail,
+    subject: `${code} is your Library Checker verification code`,
+    html: `
+      <p>Your Library Checker verification code is:</p>
+      <p style="font-size:28px;font-weight:700;letter-spacing:6px;">${escapeHtml(code)}</p>
+      <p>It expires in 10 minutes. If you didn't create an account, you can ignore this email.</p>
+    `,
+  });
+}
+
+export async function sendPasswordResetEmail(toEmail, code) {
+  if (!emailConfigured() && process.env.NODE_ENV !== "production") {
+    console.log(`[Email] DEV password reset code for ${toEmail}: ${code}`);
+  }
+  return sendMail({
+    to: toEmail,
+    subject: `${code} is your Library Checker password reset code`,
+    html: `
+      <p>Your Library Checker password reset code is:</p>
+      <p style="font-size:28px;font-weight:700;letter-spacing:6px;">${escapeHtml(code)}</p>
+      <p>It expires in 10 minutes. If you didn't ask to reset your password, you can ignore this email — your password hasn't changed.</p>
+    `,
+  });
+}
+
 export async function sendAvailabilityEmail(toEmail, newlyAvailable) {
   if (!newlyAvailable.length) return;
-
-  if (!resend) {
-    console.log(`[Email] RESEND_API_KEY not set — would have notified ${toEmail} about ${newlyAvailable.length} book(s)`);
-    return;
-  }
 
   const items = newlyAvailable.map(b => `
     <li style="margin-bottom:8px;">
@@ -30,18 +96,13 @@ export async function sendAvailabilityEmail(toEmail, newlyAvailable) {
       ${b.searchUrl ? ` — <a href="${b.searchUrl}">view at ${escapeHtml(b.libraryName || "your library")}</a>` : ""}
     </li>`).join("");
 
-  try {
-    await resend.emails.send({
-      from:    process.env.NOTIFY_FROM_EMAIL || "onboarding@resend.dev",
-      to:      toEmail,
-      subject: `${newlyAvailable.length} book${newlyAvailable.length !== 1 ? "s" : ""} from your shelf ${newlyAvailable.length !== 1 ? "are" : "is"} now available`,
-      html: `
-        <p>Good news — these books from your Goodreads shelf are now available at your library:</p>
-        <ul>${items}</ul>
-        <p style="color:#888;font-size:12px;">You're getting this because you're a Library Checker Premium subscriber with shelf monitoring enabled.</p>
-      `,
-    });
-  } catch (err) {
-    console.error(`[Email] Failed to send to ${toEmail}:`, err.message);
-  }
+  await sendMail({
+    to:      toEmail,
+    subject: `${newlyAvailable.length} book${newlyAvailable.length !== 1 ? "s" : ""} from your shelf ${newlyAvailable.length !== 1 ? "are" : "is"} now available`,
+    html: `
+      <p>Good news — these books from your Goodreads shelf are now available at your library:</p>
+      <ul>${items}</ul>
+      <p style="color:#888;font-size:12px;">You're getting this because you're a Library Checker Premium subscriber with shelf monitoring enabled.</p>
+    `,
+  });
 }
