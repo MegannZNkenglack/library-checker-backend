@@ -88,15 +88,15 @@ h1{margin-bottom:0.25rem} h2{margin-top:2rem}
 <h2>What we collect</h2>
 <ul>
 <li><strong>Account info:</strong> your email address, and if you sign in with Google, your Google account ID and name.</li>
-<li><strong>Book checks:</strong> the ISBN, title, author, and format of books you check, plus the library you selected and the result — stored as your check history.</li>
+<li><strong>Book checks:</strong> the ISBN, title, author, and format of books you check, plus the library you selected and the result — stored as your check history. For premium shelf monitoring, we also keep the books on the shelves you scan so we can re-check them overnight.</li>
 <li><strong>Billing:</strong> subscription status and payment method are handled entirely by Stripe. We store your Stripe customer/subscription ID, not your card details.</li>
 </ul>
 
 <h2>How we use it</h2>
-<p>To operate your account (sign-in, daily usage limits, subscription tier) and to show your check history back to you in the extension. We do not sell your data or share it with advertisers.</p>
+<p>To operate your account (sign-in, daily usage limits, subscription tier), to show your check history back to you in the extension, and to email you: a verification code when you sign up, a code if you reset your password, and — for premium subscribers using shelf monitoring — a notice when a watched book becomes available. We do not sell your data or share it with advertisers.</p>
 
 <h2>Third parties</h2>
-<p>Book availability lookups are sent to your chosen library's catalog (BiblioCommons) and to NoveList/EBSCO. Sign-in and billing are handled by Google and Stripe respectively, under their own privacy policies.</p>
+<p>Book availability lookups are sent to your chosen library's catalog (BiblioCommons), to NoveList/EBSCO, and to OverDrive (Libby) for digital copies. Emails are sent through Gmail (Google). Sign-in and billing are handled by Google and Stripe respectively, under their own privacy policies.</p>
 
 <h2>Data retention & deletion</h2>
 <p>Check history and account data are kept while your account is active. To delete your account and all associated data, contact us at the address below.</p>
