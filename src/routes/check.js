@@ -17,6 +17,14 @@ const DAILY_LIMITS = {
   premium: Infinity,
 };
 
+// How many libraries one check can cover. Extra entries beyond the cap are
+// ignored (not an error) so a downgraded account with a long saved list still works.
+const MAX_LIBRARIES = {
+  free:    3,
+  premium: 10,
+};
+const MULTI_LIBRARY_CONCURRENCY = 3;
+
 // Free shelf scans cover only the first N books of the page; premium has no cap.
 const FREE_SHELF_SCAN_LIMIT = 10;
 
@@ -412,14 +420,46 @@ router.post("/", async (c) => {
   }
 
   const body = await c.req.json();
-  const { isbn, title, author, pageFormat, libraryUrl, libraryName } = body;
+  const { isbn, title, author, pageFormat } = body;
 
-  if (!libraryUrl) return c.json({ error: "libraryUrl is required" }, 400);
-  if (!isAllowedLibraryUrl(libraryUrl)) return c.json({ error: "Unsupported library" }, 400);
+  // New clients send "libraries" (primary first); older ones send libraryUrl/libraryName.
+  const requested = Array.isArray(body.libraries) && body.libraries.length
+    ? body.libraries.map(l => ({ url: l?.url, name: l?.name }))
+    : [{ url: body.libraryUrl, name: body.libraryName }];
 
-  const result = await checkLibrary({ isbn, title, author, pageFormat, libraryUrl, libraryName });
+  const seen = new Set();
+  const libraries = requested.filter(l => {
+    if (!l.url || seen.has(l.url)) return false;
+    seen.add(l.url);
+    return true;
+  }).slice(0, MAX_LIBRARIES[tier] ?? MAX_LIBRARIES.free);
 
-  // Increment usage
+  if (!libraries.length) return c.json({ error: "libraryUrl is required" }, 400);
+  if (libraries.length === 1 && !isAllowedLibraryUrl(libraries[0].url)) {
+    return c.json({ error: "Unsupported library" }, 400);
+  }
+
+  // Check every selected library (a few at a time). One bad library must not
+  // sink the others, so each failure becomes that library's own "error" entry.
+  const results = new Array(libraries.length);
+  let nextLib = 0;
+  async function libWorker() {
+    while (nextLib < libraries.length) {
+      const i = nextLib++;
+      const lib = libraries[i];
+      try {
+        if (!isAllowedLibraryUrl(lib.url)) throw new Error("unsupported");
+        const result = await checkLibrary({ isbn, title, author, pageFormat, libraryUrl: lib.url, libraryName: lib.name });
+        results[i] = { libraryUrl: lib.url, libraryName: lib.name || null, ...result };
+      } catch {
+        results[i] = { libraryUrl: lib.url, libraryName: lib.name || null, status: "error" };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(MULTI_LIBRARY_CONCURRENCY, libraries.length) }, libWorker));
+  const result = results[0]; // the primary library — what older clients read from the top level
+
+  // One check counts once, however many libraries it covered.
   db.prepare(`
     INSERT INTO usage (user_id, date, count) VALUES (?, ?, 1)
     ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
@@ -427,14 +467,18 @@ router.post("/", async (c) => {
 
   const newUsage = db.prepare("SELECT count FROM usage WHERE user_id = ? AND date = ?").get(userId, today);
 
-  // Save to history
-  db.prepare(`
+  const insertHistory = db.prepare(`
     INSERT INTO check_history (user_id, isbn, title, library_url, library_name, status, search_url)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(userId, isbn || null, title || null, libraryUrl, libraryName || null, result.status, result.searchUrl || null);
+  `);
+  for (const r of results) {
+    insertHistory.run(userId, isbn || null, title || null, r.libraryUrl, r.libraryName, r.status, r.searchUrl || null);
+  }
 
   return c.json({
     ...result,
+    results,
+    maxLibraries: MAX_LIBRARIES[tier] ?? MAX_LIBRARIES.free,
     used:  newUsage?.count ?? 1,
     limit: limit === Infinity ? null : limit,
   });
