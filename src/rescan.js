@@ -8,6 +8,7 @@ import db from "./db.js";
 import { checkLibrary } from "./routes/check.js";
 import { digitalState, availableDigitalFormats } from "./overdrive.js";
 import { sendAvailabilityEmail } from "./email.js";
+import { recordAlerts, pruneAlerts } from "./alerts.js";
 
 // What's newly available for one watched book, or null if there's nothing to
 // email about. A digital alert needs an explicit "waiting" -> "available"
@@ -84,10 +85,16 @@ export async function runNightlyRescan() {
     }
 
     if (newlyAvailable.length) {
+      // The extension shows these as a badge / notification. A failure here must
+      // never stop the email going out.
+      try { recordAlerts(user.id, newlyAvailable); }
+      catch (err) { console.error("[Rescan] Couldn't record alerts:", err.message); }
       await sendAvailabilityEmail(user.email, newlyAvailable);
       totalNotified++;
     }
   }
+
+  try { pruneAlerts(); } catch {}
 
   console.log(`[Rescan] Done — rechecked ${totalChecked} book(s), notified ${totalNotified} user(s).`);
 }

@@ -127,6 +127,20 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_limit_events_kind ON limit_events(kind, created_at);
 
+  CREATE TABLE IF NOT EXISTS watch_alerts (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title        TEXT    NOT NULL,
+    author       TEXT,
+    library_name TEXT,
+    kind         TEXT    NOT NULL,              -- print | digital | both
+    formats      TEXT,                          -- "eBook,Audiobook" for digital
+    url          TEXT,
+    created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+    seen_at      TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_watch_alerts_user ON watch_alerts(user_id, seen_at);
+
   CREATE TABLE IF NOT EXISTS overdrive_map (
     library_url   TEXT PRIMARY KEY,
     overdrive_key TEXT,                              -- null = no OverDrive library found

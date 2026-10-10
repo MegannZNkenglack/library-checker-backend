@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import db        from "../db.js";
 import { checkDigital, digitalState, overdriveKeyFromUrl } from "../overdrive.js";
 import { recordLimitEvent } from "../events.js";
+import { listUnseenAlerts, markAlertsSeen } from "../alerts.js";
 import {
   HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
   searchHistory, historyLibraries, exportRows, toCsv, toJson,
@@ -675,6 +676,27 @@ router.delete("/history", async (c) => {
   const userId = c.get("userId");
   db.prepare("DELETE FROM check_history WHERE user_id = ?").run(userId);
   return c.json({ ok: true });
+});
+
+// ── GET /check/alerts ─────────────────────────────────────────────────────────
+// Watched books that have become available and the user hasn't looked at yet.
+// Only premium accounts have watches; everyone else just gets an empty list.
+
+router.get("/alerts", async (c) => {
+  const userId  = c.get("userId");
+  const premium = (c.get("userTier") || "free") === "premium";
+  c.header("Cache-Control", "no-store");
+  return c.json({ premium, alerts: premium ? listUnseenAlerts(userId) : [] });
+});
+
+// ── POST /check/alerts/seen ───────────────────────────────────────────────────
+// Body { ids: [..] } marks those alerts seen; no ids marks them all.
+
+router.post("/alerts/seen", async (c) => {
+  const userId = c.get("userId");
+  let ids;
+  try { ids = (await c.req.json())?.ids; } catch {}
+  return c.json({ ok: true, marked: markAlertsSeen(userId, ids) });
 });
 
 export default router;
