@@ -64,6 +64,7 @@ const asset = (file) => readFileSync(new URL(`./assets/${file}`, import.meta.url
 const ASSETS = {
   "site.css":     { body: asset("site.css"),     type: "text/css; charset=utf-8" },
   "site.js":      { body: asset("site.js"),      type: "application/javascript; charset=utf-8" },
+  "admin.js":     { body: asset("admin.js"),     type: "application/javascript; charset=utf-8" },
   "icon-32.png":  { body: asset("icon-32.png"),  type: "image/png" },
   "icon-128.png": { body: asset("icon-128.png"), type: "image/png" },
 };
@@ -86,7 +87,7 @@ site.get("/favicon.ico", (c) =>
 // ── robots.txt and sitemap.xml ───────────────────────────────────────────────
 
 site.get("/robots.txt", (c) =>
-  c.text(`User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /check/\nDisallow: /libraries/search\nDisallow: /billing/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`));
+  c.text(`User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /check/\nDisallow: /libraries/search\nDisallow: /admin\nDisallow: /billing/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`));
 
 site.get("/sitemap.xml", (c) => {
   const urls = PAGES.filter(p => p.index)

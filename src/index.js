@@ -16,6 +16,7 @@ import billingRouter       from "./routes/billing.js";
 import { runNightlyRescan } from "./rescan.js";
 import site, { NOT_FOUND_HTML, htmlHeaders } from "./site/index.js";
 import librariesRouter from "./routes/libraries.js";
+import adminRouter from "./routes/admin.js";
 
 const app  = new Hono();
 const PORT = parseInt(process.env.PORT || "3000");
@@ -53,6 +54,9 @@ app.route("/", site);
 
 // Public library search (name -> library) used by the extension's Settings tab.
 app.route("/libraries", librariesRouter);
+
+// Private stats page — only exists when ADMIN_TOKEN is set (see routes/admin.js).
+app.route("/admin", adminRouter);
 
 // ── Auth routes (no auth required) ────────────────────────────────────────────
 app.route("/auth", authRouter);

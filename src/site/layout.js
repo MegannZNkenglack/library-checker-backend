@@ -6,7 +6,7 @@ export const STORE_URL = "https://chromewebstore.google.com/detail/library-check
 export const SITE_URL  = (process.env.SITE_URL || "https://library-checker-backend.onrender.com").replace(/\/+$/, "");
 
 // Bumped whenever site.css / site.js change, so browsers fetch the new copy.
-export const ASSET_VERSION = "2";
+export const ASSET_VERSION = "3";
 
 const NAV = [
   { path: "/pricing",   label: "Pricing" },
@@ -35,7 +35,7 @@ export const storeButton = (label = "Add to Chrome — it's free", cls = "btn bt
   `<a class="${cls}" href="${STORE_URL}" rel="noopener">${esc(label)}</a>`;
 
 // page({ path, title, description, body, jsonLd?, noindex?, bodyClass? }) -> full HTML document
-export function page({ path, title, description, body, jsonLd, noindex = false, bodyClass = "" }) {
+export function page({ path, title, description, body, jsonLd, noindex = false, bodyClass = "", scripts = [] }) {
   const isHome   = path === "/";
   const fullTitle = isHome ? title : `${title} — ${SITE_NAME}`;
   const url      = SITE_URL + (isHome ? "/" : path);
@@ -103,6 +103,7 @@ ${body}
     <p class="footer-legal">Library Checker is an independent project. It isn't affiliated with or endorsed by Goodreads, Amazon, BiblioCommons, OverDrive or Libby; those names belong to their owners. Availability and wait times come from third-party library systems and can be out of date.</p>
   </footer>
   <script src="/assets/site.js?v=${ASSET_VERSION}" defer></script>
+  ${scripts.map(src => `<script src="${src}?v=${ASSET_VERSION}" defer></script>`).join("\n  ")}
 </body>
 </html>`;
 }

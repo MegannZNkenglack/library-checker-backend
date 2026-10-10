@@ -7,6 +7,7 @@
 import { Hono } from "hono";
 import db        from "../db.js";
 import { checkDigital, digitalState, overdriveKeyFromUrl } from "../overdrive.js";
+import { recordLimitEvent } from "../events.js";
 import {
   HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
   searchHistory, historyLibraries, exportRows, toCsv, toJson,
@@ -432,6 +433,7 @@ router.post("/", async (c) => {
     const row = db.prepare("SELECT count FROM usage WHERE user_id = ? AND date = ?").get(userId, today);
     const used = row?.count ?? 0;
     if (used >= limit) {
+      recordLimitEvent(userId, "check_quota");
       return c.json({ status: "quota_exceeded", used, limit }, 429);
     }
   }
@@ -450,6 +452,7 @@ router.post("/", async (c) => {
     seen.add(l.url);
     return true;
   }).slice(0, MAX_LIBRARIES[tier] ?? MAX_LIBRARIES.free);
+  if (tier !== "premium" && seen.size > libraries.length) recordLimitEvent(userId, "library_cap");
 
   if (!libraries.length) return c.json({ error: "libraryUrl is required" }, 400);
   if (libraries.length === 1 && !isAllowedLibraryUrl(libraries[0].url)) {
@@ -521,6 +524,7 @@ router.post("/batch", async (c) => {
   if (tier !== "premium") {
     const row = db.prepare("SELECT count FROM shelf_scans WHERE user_id = ? AND date = ?").get(userId, today);
     if ((row?.count ?? 0) >= 1) {
+      recordLimitEvent(userId, "scan_quota");
       return c.json({
         status:  "scan_quota_exceeded",
         message: "Free plan: 1 shelf scan per day. Upgrade for unlimited.",
@@ -542,7 +546,7 @@ router.post("/batch", async (c) => {
 
   const totalRequested = books.length;
   const freeCapped = tier !== "premium" && books.length > FREE_SHELF_SCAN_LIMIT;
-  if (freeCapped) books.length = FREE_SHELF_SCAN_LIMIT;
+  if (freeCapped) { books.length = FREE_SHELF_SCAN_LIMIT; recordLimitEvent(userId, "scan_cap"); }
 
   const results = new Array(books.length);
   let nextIndex = 0;

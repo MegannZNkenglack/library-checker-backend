@@ -119,6 +119,14 @@ db.exec(`
     last_sent_at INTEGER NOT NULL    -- unix ms
   );
 
+  CREATE TABLE IF NOT EXISTS limit_events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind       TEXT    NOT NULL,                -- check_quota | scan_quota | scan_cap | library_cap
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_limit_events_kind ON limit_events(kind, created_at);
+
   CREATE TABLE IF NOT EXISTS overdrive_map (
     library_url   TEXT PRIMARY KEY,
     overdrive_key TEXT,                              -- null = no OverDrive library found
