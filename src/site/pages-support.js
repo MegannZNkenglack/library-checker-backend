@@ -107,6 +107,13 @@ export function faq() {
 // ── What's new ───────────────────────────────────────────────────────────────
 const RELEASES = [
   {
+    version: "2.5.1", date: "October 2026", title: "A \"best option\" across your libraries",
+    items: [
+      ["When you check a book at more than one library, a green banner now points out where you can read it soonest — available now beats a wait, and a shorter wait beats a longer one, whether that's print, an eBook or an audiobook. Click it to open that library's page.", "free"],
+      ["Quick links to the website, help, contact and privacy pages at the bottom of the extension.", ""],
+    ],
+  },
+  {
     version: "2.5.0", date: "October 2026", title: "Digital copies at libraries beyond BiblioCommons",
     items: [
       ["Search for any library by name in Settings. Libraries that lend eBooks and audiobooks through Libby/OverDrive can now be added even if their print catalog isn't supported — you'll see digital availability and wait times for them.", "free"],
