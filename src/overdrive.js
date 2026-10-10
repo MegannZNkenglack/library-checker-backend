@@ -23,6 +23,19 @@ const THUNDER = "https://thunder.api.overdrive.com/v2";
 const POSITIVE_TTL_DAYS = 90;
 const NEGATIVE_TTL_DAYS = 7;
 
+// A library that is only known by its OverDrive/Libby account (its catalog runs
+// on a system we can't search) is stored as "overdrive:<key>" instead of a web
+// address. Only keys that exist in the OverDrive directory are accepted.
+export const OVERDRIVE_PREFIX = "overdrive:";
+export const overdriveDirectory = directory;
+const directoryKeys = new Set(directory.map(l => l.key));
+
+export function overdriveKeyFromUrl(url) {
+  if (typeof url !== "string" || !url.startsWith(OVERDRIVE_PREFIX)) return null;
+  const key = url.slice(OVERDRIVE_PREFIX.length);
+  return directoryKeys.has(key) ? key : null;
+}
+
 // ── Normalising helpers ──────────────────────────────────────────────────────
 
 const INVISIBLE = /[\u200B\u200C\u200D\uFEFF\u2060]/g;
@@ -110,6 +123,8 @@ function matchDirectory(cmsUrl, longName) {
 // library has no OverDrive presence we can identify (e.g. it uses another
 // platform such as cloudLibrary). Results — including "none" — are cached.
 export async function resolveOverdriveKey(libraryUrl, libraryName) {
+  const direct = overdriveKeyFromUrl(libraryUrl);
+  if (direct) return direct;
   if (keyMemo.has(libraryUrl)) return keyMemo.get(libraryUrl);
 
   const row = db.prepare("SELECT overdrive_key, resolved_at FROM overdrive_map WHERE library_url = ?").get(libraryUrl);

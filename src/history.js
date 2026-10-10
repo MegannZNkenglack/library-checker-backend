@@ -7,12 +7,13 @@ export const HISTORY_PAGE_DEFAULT = 50;
 export const HISTORY_PAGE_MAX     = 200;
 export const HISTORY_EXPORT_MAX   = 20000;
 
-const STATUSES = new Set(["in_catalog", "no_exact_edition", "not_found", "error"]);
+const STATUSES = new Set(["in_catalog", "no_exact_edition", "not_found", "digital_only", "error"]);
 
 const RESULT_LABELS = {
   in_catalog:       "In catalog",
   no_exact_edition: "Other edition",
   not_found:        "Not in catalog",
+  digital_only:     "Digital only",
   error:            "Couldn't check",
 };
 const AVAILABILITY_LABELS = {

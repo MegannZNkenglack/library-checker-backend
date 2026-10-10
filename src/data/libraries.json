@@ -1,0 +1,182 @@
+[
+  {
+    "name": "Barrie Public Library",
+    "country": "CA",
+    "url": "https://barrie.bibliocommons.com",
+    "overdrive": "barrielibrary"
+  },
+  {
+    "name": "Burlington Public Library",
+    "country": "CA",
+    "url": "https://burlington.bibliocommons.com",
+    "overdrive": "burlingtonpl"
+  },
+  {
+    "name": "Burnaby Public Library",
+    "country": "CA",
+    "url": "https://burnaby.bibliocommons.com",
+    "overdrive": "burnaby"
+  },
+  {
+    "name": "Calgary Public Library",
+    "country": "CA",
+    "url": "https://calgary.bibliocommons.com",
+    "overdrive": "calgary"
+  },
+  {
+    "name": "Edmonton Public Library",
+    "country": "CA",
+    "url": "https://epl.bibliocommons.com",
+    "overdrive": "epl"
+  },
+  {
+    "name": "Guelph Public Library",
+    "country": "CA",
+    "url": "https://guelphpl.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "Halifax Public Libraries",
+    "country": "CA",
+    "url": "https://halifax.bibliocommons.com",
+    "overdrive": "halifax"
+  },
+  {
+    "name": "Hamilton Public Library",
+    "country": "CA",
+    "url": "https://hpl.bibliocommons.com",
+    "overdrive": "hpl"
+  },
+  {
+    "name": "Markham Public Library",
+    "country": "CA",
+    "url": "https://markham.bibliocommons.com",
+    "overdrive": "markham"
+  },
+  {
+    "name": "Mississauga Library",
+    "country": "CA",
+    "url": "https://mississauga.bibliocommons.com",
+    "overdrive": "mississauga"
+  },
+  {
+    "name": "Oakville Public Library",
+    "country": "CA",
+    "url": "https://opl.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "Ottawa Public Library",
+    "country": "CA",
+    "url": "https://ottawa.bibliocommons.com",
+    "overdrive": "ottawa"
+  },
+  {
+    "name": "Richmond Hill Public Library",
+    "country": "CA",
+    "url": "https://rhpl.bibliocommons.com",
+    "overdrive": "rhpl"
+  },
+  {
+    "name": "Richmond Public Library",
+    "country": "CA",
+    "url": "https://yourlibrary.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "Surrey Libraries",
+    "country": "CA",
+    "url": "https://surrey.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "Toronto Public Library",
+    "country": "CA",
+    "url": "https://tpl.bibliocommons.com",
+    "overdrive": "toronto"
+  },
+  {
+    "name": "Vancouver Public Library",
+    "country": "CA",
+    "url": "https://vpl.bibliocommons.com",
+    "overdrive": "vpl"
+  },
+  {
+    "name": "Vaughan Public Libraries",
+    "country": "CA",
+    "url": "https://vaughanpl.bibliocommons.com",
+    "overdrive": "vaughanpl"
+  },
+  {
+    "name": "Austin Public Library",
+    "country": "US",
+    "url": "https://austin.bibliocommons.com",
+    "overdrive": "austinlibrary"
+  },
+  {
+    "name": "Boston Public Library",
+    "country": "US",
+    "url": "https://bpl.bibliocommons.com",
+    "overdrive": "bpl"
+  },
+  {
+    "name": "Charlotte Mecklenburg Library",
+    "country": "US",
+    "url": "https://cmlibrary.bibliocommons.com",
+    "overdrive": "plcmc"
+  },
+  {
+    "name": "Chicago Public Library",
+    "country": "US",
+    "url": "https://chipublib.bibliocommons.com",
+    "overdrive": "chipublib"
+  },
+  {
+    "name": "Columbus Metropolitan Library",
+    "country": "US",
+    "url": "https://cml.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "Hennepin County Library (Minneapolis)",
+    "country": "US",
+    "url": "https://hclib.bibliocommons.com",
+    "overdrive": null
+  },
+  {
+    "name": "King County Library System",
+    "country": "US",
+    "url": "https://kcls.bibliocommons.com",
+    "overdrive": "kcls"
+  },
+  {
+    "name": "Multnomah County Library",
+    "country": "US",
+    "url": "https://multcolib.bibliocommons.com",
+    "overdrive": "multcolib"
+  },
+  {
+    "name": "New York Public Library",
+    "country": "US",
+    "url": "https://nypl.bibliocommons.com",
+    "overdrive": "nypl"
+  },
+  {
+    "name": "San Francisco Public Library",
+    "country": "US",
+    "url": "https://sfpl.bibliocommons.com",
+    "overdrive": "sfpl"
+  },
+  {
+    "name": "San Jose Public Library",
+    "country": "US",
+    "url": "https://sjpl.bibliocommons.com",
+    "overdrive": "sanjose"
+  },
+  {
+    "name": "Seattle Public Library",
+    "country": "US",
+    "url": "https://seattle.bibliocommons.com",
+    "overdrive": "spl"
+  }
+]

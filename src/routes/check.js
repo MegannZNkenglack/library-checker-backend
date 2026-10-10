@@ -6,7 +6,7 @@
 
 import { Hono } from "hono";
 import db        from "../db.js";
-import { checkDigital, digitalState } from "../overdrive.js";
+import { checkDigital, digitalState, overdriveKeyFromUrl } from "../overdrive.js";
 import {
   HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
   searchHistory, historyLibraries, exportRows, toCsv, toJson,
@@ -36,6 +36,7 @@ const FREE_SHELF_SCAN_LIMIT = 10;
 // BiblioCommons sites are accepted — otherwise a signed-in user could point the
 // server at internal addresses (SSRF).
 function isAllowedLibraryUrl(libraryUrl) {
+  if (overdriveKeyFromUrl(libraryUrl)) return true; // digital-only library, no web address involved
   try {
     const u = new URL(libraryUrl);
     return u.protocol === "https:" && /^[a-z0-9-]+\.bibliocommons\.com$/i.test(u.hostname);
@@ -398,6 +399,18 @@ async function checkPhysical({ isbn, title, author, pageFormat, libraryUrl }) {
 // side. Digital never changes the physical status — it's an extra "digital"
 // field, present only when the book exists in the library's digital catalog.
 export async function checkLibrary(args) {
+  // A digital-only library (print catalog not supported): look the book up in
+  // its Libby/OverDrive catalog and say plainly that print wasn't checked.
+  const digitalKey = overdriveKeyFromUrl(args.libraryUrl);
+  if (digitalKey) {
+    const found = await checkDigital(args).catch(() => null);
+    const base  = {
+      status:    "digital_only",
+      searchUrl: `https://${digitalKey}.overdrive.com/search?query=${encodeURIComponent(args.title || "")}`,
+    };
+    return found && (found.ebook || found.audiobook) ? { ...base, digital: found } : base;
+  }
+
   const [physical, digital] = await Promise.all([
     checkPhysical(args),
     checkDigital(args).catch(() => null),

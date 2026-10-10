@@ -36,14 +36,14 @@ export function emailConfigured() {
 }
 
 // Returns true if the message was handed to a transport, false otherwise.
-async function sendMail({ to, subject, html }) {
+async function sendMail({ to, subject, html, replyTo }) {
   try {
     if (smtp) {
-      await smtp.sendMail({ from: FROM, to, subject, html });
+      await smtp.sendMail({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) });
       return true;
     }
     if (resend) {
-      const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+      const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) });
       if (error) throw new Error(error.message);
       return true;
     }
@@ -126,4 +126,28 @@ export async function sendAvailabilityEmail(toEmail, newlyAvailable) {
   if (!newlyAvailable.length) return;
   const { subject, html } = buildAvailabilityEmail(newlyAvailable);
   await sendMail({ to: toEmail, subject, html });
+}
+
+// Forwards a website contact-form message to the support inbox, with the
+// sender's address as Reply-To so answering it goes straight to them. Returns
+// false (and sends nothing) when no recipient or email transport is configured.
+export async function sendContactEmail({ name, email, topicLabel, message }) {
+  const to = process.env.SUPPORT_EMAIL || process.env.SMTP_USER;
+  if (!to || !emailConfigured()) return false;
+
+  // The subject echoes the start of the message; keep angle brackets out of it.
+  const preview = message.replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
+  return sendMail({
+    to,
+    replyTo: email,
+    subject: `[Library Checker] ${topicLabel}: ${preview}`,
+    html: `
+      <p><strong>New message from the website contact form</strong></p>
+      <p><strong>Topic:</strong> ${escapeHtml(topicLabel)}<br>
+         <strong>Name:</strong> ${escapeHtml(name || "(not given)")}<br>
+         <strong>Email:</strong> ${escapeHtml(email)}</p>
+      <hr>
+      <p style="white-space:pre-wrap">${escapeHtml(message)}</p>
+    `,
+  });
 }
