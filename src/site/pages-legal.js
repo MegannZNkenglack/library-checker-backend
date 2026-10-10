@@ -3,7 +3,7 @@
 import { page, esc } from "./layout.js";
 
 // Change this date whenever the policy or terms text changes.
-const UPDATED = "October 9, 2026";
+const UPDATED = "October 10, 2026";
 
 const supportEmail = () => process.env.SUPPORT_EMAIL || "support@example.com";
 
@@ -22,6 +22,7 @@ export function privacy() {
     <ul>
       <li><strong>Account info:</strong> your email address, and if you sign in with Google, your Google account ID and name.</li>
       <li><strong>Book checks:</strong> the ISBN, title, author and format of books you check, plus the library you selected and the result — stored as your check history. For premium shelf monitoring, we also keep the books on the shelves you scan so we can re-check them overnight.</li>
+      <li><strong>Usage limits:</strong> when you reach a free-plan limit (the daily checks, the daily shelf scan, or the number of libraries per check), we record your account ID, which limit it was and the time. We use this only to understand whether the limits are set fairly; it isn't shared with anyone.</li>
       <li><strong>Billing:</strong> subscription status and payment method are handled entirely by Stripe. We store your Stripe customer and subscription IDs, not your card details.</li>
       <li><strong>Contact form:</strong> if you write to us through this website, we receive the name (optional), email address and message you submit, and use them only to reply.</li>
     </ul>
