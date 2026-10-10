@@ -87,22 +87,43 @@ export async function sendPasswordResetEmail(toEmail, code) {
   });
 }
 
-export async function sendAvailabilityEmail(toEmail, newlyAvailable) {
-  if (!newlyAvailable.length) return;
+const escapeAttr = (url) => escapeHtml(String(url));
 
-  const items = newlyAvailable.map(b => `
+// Each item: { title, author, libraryName, physical, searchUrl, digital: ["eBook", ...], digitalUrl }.
+// A book can be newly available in print, digitally, or both.
+export function buildAvailabilityEmail(items) {
+  const rows = items.map(b => {
+    const lib  = escapeHtml(b.libraryName || "your library");
+    const what = [];
+    if (b.physical) {
+      what.push(b.searchUrl ? `<a href="${escapeAttr(b.searchUrl)}">available at ${lib}</a>` : `available at ${lib}`);
+    }
+    if (b.digital?.length) {
+      const formats = b.digital.map(escapeHtml).join(" and ");
+      what.push(b.digitalUrl
+        ? `<a href="${escapeAttr(b.digitalUrl)}">${formats} ready to borrow at ${lib}</a>`
+        : `${formats} ready to borrow at ${lib}`);
+    }
+    return `
     <li style="margin-bottom:8px;">
       <strong>${escapeHtml(b.title)}</strong>${b.author ? ` by ${escapeHtml(b.author)}` : ""}
-      ${b.searchUrl ? ` — <a href="${b.searchUrl}">view at ${escapeHtml(b.libraryName || "your library")}</a>` : ""}
-    </li>`).join("");
+      — ${what.join(" · ")}
+    </li>`;
+  }).join("");
 
-  await sendMail({
-    to:      toEmail,
-    subject: `${newlyAvailable.length} book${newlyAvailable.length !== 1 ? "s" : ""} from your shelf ${newlyAvailable.length !== 1 ? "are" : "is"} now available`,
+  const n = items.length;
+  return {
+    subject: `${n} book${n !== 1 ? "s" : ""} from your shelf ${n !== 1 ? "are" : "is"} now available`,
     html: `
-      <p>Good news — these books from your Goodreads shelf are now available at your library:</p>
-      <ul>${items}</ul>
+      <p>Good news — these books from your Goodreads shelf are now available:</p>
+      <ul>${rows}</ul>
       <p style="color:#888;font-size:12px;">You're getting this because you're a Library Checker Premium subscriber with shelf monitoring enabled.</p>
     `,
-  });
+  };
+}
+
+export async function sendAvailabilityEmail(toEmail, newlyAvailable) {
+  if (!newlyAvailable.length) return;
+  const { subject, html } = buildAvailabilityEmail(newlyAvailable);
+  await sendMail({ to: toEmail, subject, html });
 }

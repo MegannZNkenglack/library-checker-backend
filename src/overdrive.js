@@ -25,7 +25,7 @@ const NEGATIVE_TTL_DAYS = 7;
 
 // ── Normalising helpers ──────────────────────────────────────────────────────
 
-const INVISIBLE = /[​‌‍﻿⁠]/g;
+const INVISIBLE = /[\u200B\u200C\u200D\uFEFF\u2060]/g;
 const APOSTROPHES = /&#x27;|&#39;|&apos;|&rsquo;|&#8217;|['’]/gi;
 
 function hostOf(url) {
@@ -194,6 +194,24 @@ export async function checkDigital({ title, author, libraryUrl, libraryName }) {
       audiobook: bestOf(matches.filter(it => it.type?.id === "audiobook"), key),
     };
   } catch { return null; }
+}
+
+// Collapses a digital result into one word for the nightly rescan to compare:
+// "available" (an eBook or audiobook can be borrowed right now), "waiting" (the
+// library has it but every copy is out), or null (not in the digital catalog
+// or couldn't tell).
+export function digitalState(digital) {
+  const kinds = digital ? [digital.ebook, digital.audiobook].filter(Boolean) : [];
+  if (!kinds.length) return null;
+  return kinds.some(k => k.available) ? "available" : "waiting";
+}
+
+// Names of the digital formats that can be borrowed right now.
+export function availableDigitalFormats(digital) {
+  const out = [];
+  if (digital?.ebook?.available)     out.push("eBook");
+  if (digital?.audiobook?.available) out.push("Audiobook");
+  return out;
 }
 
 // Exported for tests.

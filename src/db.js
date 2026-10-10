@@ -99,6 +99,17 @@ if (!userCols.includes("email_verified")) {
   db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1");
 }
 
+// shelf_watches remembers whether a digital copy was waiting/available, so the
+// nightly rescan can tell when one frees up.
+const watchCols = db.prepare("PRAGMA table_info(shelf_watches)").all().map(c => c.name);
+if (!watchCols.includes("last_digital")) db.exec("ALTER TABLE shelf_watches ADD COLUMN last_digital TEXT");
+
+// check_history gained author + availability so exports are more useful.
+const historyCols = db.prepare("PRAGMA table_info(check_history)").all().map(c => c.name);
+for (const col of ["author", "availability"]) {
+  if (!historyCols.includes(col)) db.exec(`ALTER TABLE check_history ADD COLUMN ${col} TEXT`);
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS email_verifications (
     user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

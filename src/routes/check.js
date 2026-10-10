@@ -6,7 +6,11 @@
 
 import { Hono } from "hono";
 import db        from "../db.js";
-import { checkDigital } from "../overdrive.js";
+import { checkDigital, digitalState } from "../overdrive.js";
+import {
+  HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
+  searchHistory, historyLibraries, exportRows, toCsv, toJson,
+} from "../history.js";
 
 const router = new Hono();
 
@@ -468,11 +472,11 @@ router.post("/", async (c) => {
   const newUsage = db.prepare("SELECT count FROM usage WHERE user_id = ? AND date = ?").get(userId, today);
 
   const insertHistory = db.prepare(`
-    INSERT INTO check_history (user_id, isbn, title, library_url, library_name, status, search_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO check_history (user_id, isbn, title, author, library_url, library_name, status, availability, search_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const r of results) {
-    insertHistory.run(userId, isbn || null, title || null, r.libraryUrl, r.libraryName, r.status, r.searchUrl || null);
+    insertHistory.run(userId, isbn || null, title || null, author || null, r.libraryUrl, r.libraryName, r.status, r.availability || null, r.searchUrl || null);
   }
 
   return c.json({
@@ -552,31 +556,32 @@ router.post("/batch", async (c) => {
   `).run(userId, today);
 
   const insertHistory = db.prepare(`
-    INSERT INTO check_history (user_id, isbn, title, library_url, library_name, status, search_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO check_history (user_id, isbn, title, author, library_url, library_name, status, availability, search_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   for (const r of results) {
-    insertHistory.run(userId, r.isbn || null, r.title || null, libraryUrl, libraryName || null, r.status, r.searchUrl || null);
+    insertHistory.run(userId, r.isbn || null, r.title || null, r.author || null, libraryUrl, libraryName || null, r.status, r.availability || null, r.searchUrl || null);
   }
 
   // Only premium users get ongoing monitoring — remember what was scanned
   // so the nightly rescan job has something to compare against.
   if (tier === "premium") {
     const upsertWatch = db.prepare(`
-      INSERT INTO shelf_watches (user_id, library_url, library_name, title, author, isbn, last_status, last_availability, last_checked_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      INSERT INTO shelf_watches (user_id, library_url, library_name, title, author, isbn, last_status, last_availability, last_digital, last_checked_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT (user_id, library_url, title, author) DO UPDATE SET
         isbn              = excluded.isbn,
         library_name      = excluded.library_name,
         last_status       = excluded.last_status,
         last_availability = excluded.last_availability,
+        last_digital      = excluded.last_digital,
         last_checked_at   = excluded.last_checked_at
     `);
     for (const r of results) {
       if (!r.title) continue;
       upsertWatch.run(
         userId, libraryUrl, libraryName || null, r.title, r.author || null,
-        r.isbn || null, r.status, r.availability || null
+        r.isbn || null, r.status, r.availability || null, digitalState(r.digital)
       );
     }
   }
@@ -603,12 +608,48 @@ router.get("/usage", async (c) => {
 
 // ── GET /check/history ────────────────────────────────────────────────────────
 
+const clampInt = (value, min, max, fallback) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+};
+
+const historyFilters = (c) => ({
+  q:       c.req.query("q"),
+  status:  c.req.query("status"),
+  library: c.req.query("library"),
+});
+
+// Query params (all optional): q, status, library, limit, offset. Older clients
+// call it with none and still get { history } as before.
 router.get("/history", async (c) => {
-  const userId  = c.get("userId");
-  const history = db.prepare(`
-    SELECT * FROM check_history WHERE user_id = ? ORDER BY checked_at DESC LIMIT 50
-  `).all(userId);
-  return c.json({ history });
+  const userId = c.get("userId");
+  const limit  = clampInt(c.req.query("limit"),  1, HISTORY_PAGE_MAX, HISTORY_PAGE_DEFAULT);
+  const offset = clampInt(c.req.query("offset"), 0, Number.MAX_SAFE_INTEGER, 0);
+  const { rows, total } = searchHistory(userId, historyFilters(c), limit, offset);
+  return c.json({
+    history: rows, total, limit, offset,
+    libraries: offset === 0 ? historyLibraries(userId) : undefined,
+  });
+});
+
+// ── GET /check/history/export ─────────────────────────────────────────────────
+// Downloads the user's history (optionally filtered) as CSV (default) or JSON.
+
+router.get("/history/export", async (c) => {
+  const userId = c.get("userId");
+  const rows   = exportRows(userId, historyFilters(c));
+  const asJson = c.req.query("format") === "json";
+  const day    = new Date().toISOString().slice(0, 10);
+  const name   = `library-checker-history-${day}.${asJson ? "json" : "csv"}`;
+
+  return new Response(asJson ? toJson(rows) : toCsv(rows), {
+    headers: {
+      "Content-Type":        asJson ? "application/json; charset=utf-8" : "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${name}"`,
+      "X-Export-Count":      String(rows.length),
+      "Cache-Control":       "no-store",
+    },
+  });
 });
 
 // ── DELETE /check/history ─────────────────────────────────────────────────────
