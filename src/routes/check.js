@@ -516,6 +516,9 @@ router.post("/", async (c) => {
 
 const MAX_BATCH_SIZE = 100; // matches Goodreads' largest "per page" option
 const BATCH_CONCURRENCY = 4; // polite to the library site + NoveList, avoids request timeouts
+// With several libraries each book fans out to all of them at once, so fewer
+// books run at a time to keep the total load (and any one library's share of it) about the same.
+const MULTI_BATCH_CONCURRENCY = 3;
 
 router.post("/batch", async (c) => {
   const userId = c.get("userId");
@@ -534,10 +537,31 @@ router.post("/batch", async (c) => {
   }
 
   const body = await c.req.json();
-  const { books, libraryUrl, libraryName } = body;
+  const { books } = body;
+
+  // New clients send "libraries" (primary first); older ones send libraryUrl/libraryName.
+  const sentList  = Array.isArray(body.libraries) && body.libraries.length > 0;
+  const requested = sentList
+    ? body.libraries.map(l => ({ url: l?.url, name: l?.name }))
+    : [{ url: body.libraryUrl, name: body.libraryName }];
+  const libraryUrl  = requested[0].url;
+  const libraryName = requested[0].name;
 
   if (!libraryUrl) return c.json({ error: "libraryUrl is required" }, 400);
   if (!isAllowedLibraryUrl(libraryUrl)) return c.json({ error: "Unsupported library" }, 400);
+
+  // Premium scans every library the user has chosen (up to the premium cap);
+  // the free plan scans only the main one. Extra entries that aren't real
+  // libraries are dropped rather than failing the whole scan.
+  const seenLibs = new Set();
+  let libs = requested.filter(l => {
+    if (!l.url || seenLibs.has(l.url) || !isAllowedLibraryUrl(l.url)) return false;
+    seenLibs.add(l.url);
+    return true;
+  });
+  libs = tier === "premium" ? libs.slice(0, MAX_LIBRARIES.premium) : libs.slice(0, 1);
+  const multi = libs.length > 1;
+
   if (!Array.isArray(books) || books.length === 0) {
     return c.json({ error: "books array is required" }, 400);
   }
@@ -549,24 +573,32 @@ router.post("/batch", async (c) => {
   const freeCapped = tier !== "premium" && books.length > FREE_SHELF_SCAN_LIMIT;
   if (freeCapped) { books.length = FREE_SHELF_SCAN_LIMIT; recordLimitEvent(userId, "scan_cap"); }
 
+  // results[i] is the book plus its result at the main library (exactly what
+  // older clients read). With several libraries it also carries "libraries":
+  // that book's result at every library, main first.
   const results = new Array(books.length);
   let nextIndex = 0;
   async function worker() {
     while (nextIndex < books.length) {
       const i    = nextIndex++;
       const book = books[i];
-      try {
-        const result = await checkLibrary({
-          isbn: book.isbn, title: book.title, author: book.author,
-          pageFormat: "UNKNOWN", libraryUrl, libraryName,
-        });
-        results[i] = { ...book, ...result };
-      } catch {
-        results[i] = { ...book, status: "error" };
+      const perLibrary = await Promise.all(libs.map(async (lib) => {
+        try {
+          return { lib, result: await checkLibrary({
+            isbn: book.isbn, title: book.title, author: book.author,
+            pageFormat: "UNKNOWN", libraryUrl: lib.url, libraryName: lib.name,
+          }) };
+        } catch {
+          return { lib, result: { status: "error" } };
+        }
+      }));
+      results[i] = { ...book, ...perLibrary[0].result };
+      if (multi) {
+        results[i].libraries = perLibrary.map(({ lib, result }) => ({ libraryUrl: lib.url, libraryName: lib.name || null, ...result }));
       }
     }
   }
-  await Promise.all(Array.from({ length: BATCH_CONCURRENCY }, worker));
+  await Promise.all(Array.from({ length: multi ? MULTI_BATCH_CONCURRENCY : BATCH_CONCURRENCY }, worker));
 
   db.prepare(`
     INSERT INTO shelf_scans (user_id, date, count) VALUES (?, ?, 1)
@@ -595,12 +627,26 @@ router.post("/batch", async (c) => {
         last_digital      = excluded.last_digital,
         last_checked_at   = excluded.last_checked_at
     `);
+    // One watch per book per library, so the nightly rescan (and its alerts)
+    // covers every library the user has chosen.
     for (const r of results) {
       if (!r.title) continue;
-      upsertWatch.run(
-        userId, libraryUrl, libraryName || null, r.title, r.author || null,
-        r.isbn || null, r.status, r.availability || null, digitalState(r.digital)
-      );
+      const atLibraries = r.libraries || [{ libraryUrl, libraryName, ...r }];
+      for (const at of atLibraries) {
+        upsertWatch.run(
+          userId, at.libraryUrl, at.libraryName || null, r.title, r.author || null,
+          r.isbn || null, at.status, at.availability || null, digitalState(at.digital)
+        );
+      }
+    }
+
+    // The list sent with a scan is the user's current libraries, so watches at
+    // a library they've since removed stop here instead of alerting forever.
+    // (Older clients send no list, so they never trigger this.)
+    if (sentList) {
+      const keep = libs.map(l => l.url);
+      db.prepare(`DELETE FROM shelf_watches WHERE user_id = ? AND library_url NOT IN (${keep.map(() => "?").join(",")})`)
+        .run(userId, ...keep);
     }
   }
 
@@ -608,6 +654,7 @@ router.post("/batch", async (c) => {
     results,
     scanned:   results.length,
     total:     totalRequested,
+    libraries: libs.length,
     truncated: freeCapped,
     limit:     tier === "premium" ? null : FREE_SHELF_SCAN_LIMIT,
   });
