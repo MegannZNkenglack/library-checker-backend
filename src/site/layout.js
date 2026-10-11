@@ -95,7 +95,7 @@ ${body}
     <div class="footer-inner">
       <div class="footer-brand">
         <a class="brand" href="/"><span class="brand-icon">${logoSvg}</span>${SITE_NAME}</a>
-        <p>See whether your library has the book you're looking at — print, eBook or audiobook — without leaving Goodreads.</p>
+        <p>See whether your library has the book you're looking at — print, eBook or audiobook — without leaving the book page.</p>
       </div>
       <div class="footer-cols">${footer}
       </div>

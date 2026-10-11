@@ -390,3 +390,10 @@ select.field option { background: #1a1a1a; }
 .mock-best b { display: block; color: #86efac; font-size: 11px; }
 .mock-best span { color: #e5e7eb; font-size: 11px; }
 .mock-row .better-line { display: block; font-size: 11px; font-weight: 700; color: #1a7a3e; margin-top: 3px; }
+
+/* ── Per-library pages ── */
+.nearby-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 28px; }
+.nearby-list li { padding: 4px 0; }
+.lib-row a { color: inherit; text-decoration: none; }
+.lib-row a:hover { text-decoration: underline; }
+@media (max-width: 640px) { .nearby-list { grid-template-columns: 1fr; } }

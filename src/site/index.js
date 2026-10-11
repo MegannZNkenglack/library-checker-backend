@@ -8,6 +8,7 @@ import { home, pricing, libraries } from "./pages-main.js";
 import { help, faq, whatsNew, contact, CONTACT_TOPICS } from "./pages-support.js";
 import { privacy, terms, billingSuccess, billingCancel, notFound } from "./pages-legal.js";
 import { sendContactEmail } from "../email.js";
+import { LIBRARY_PAGES, libraryPage } from "./pages-library.js";
 
 const site = new Hono();
 
@@ -24,6 +25,7 @@ const PAGES = [
   { path: "/contact",    html: contact(),     index: true },
   { path: "/privacy",    html: privacy(),     index: true },
   { path: "/terms",      html: terms(),       index: true },
+  ...LIBRARY_PAGES.map(l => ({ path: l.path, html: libraryPage(l), index: true })),
   { path: "/billing/success", html: billingSuccess(), index: false },
   { path: "/billing/cancel",  html: billingCancel(),  index: false },
 ];

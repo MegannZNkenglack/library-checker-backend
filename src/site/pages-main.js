@@ -5,6 +5,7 @@ import { page, esc, storeButton, SITE_URL } from "./layout.js";
 import { popupMock, shelfMock, emailMock } from "./mockups.js";
 import { FAQS } from "./faq.js";
 import { overdriveDirectory } from "../overdrive.js";
+import { slugFor } from "./pages-library.js";
 
 const LIBRARIES = JSON.parse(readFileSync(new URL("../data/libraries.json", import.meta.url), "utf8"));
 
@@ -281,7 +282,7 @@ ${ctaBand("Ready when you are", "Install it, pick your library, and check your f
 export function libraries() {
   const rows = LIBRARIES.map(l => `
         <li class="lib-row" data-country="${esc(l.country)}" data-name="${esc(l.name.toLowerCase())}">
-          <span><strong>${esc(l.name)}</strong><br><span class="where">${l.country === "CA" ? "Canada" : "United States"}</span></span>
+          <span><strong><a href="/libraries/${slugFor(l.name)}">${esc(l.name)}</a></strong><br><span class="where">${l.country === "CA" ? "Canada" : "United States"}</span></span>
           ${l.overdrive ? '<span class="tag" title="eBooks and audiobooks through Libby/OverDrive">+ Libby / OverDrive</span>' : ""}
         </li>`).join("");
   const withDigital = LIBRARIES.filter(l => l.overdrive).length;
