@@ -4,12 +4,12 @@
 export const FAQS = [
   {
     q: "What does Library Checker do?",
-    a: `<p>When you're on a Goodreads book page, it checks your public library's catalog and shows whether the library has the book, whether a copy is on the shelf right now, how many people are waiting for it, and whether an eBook or audiobook is available through Libby/OverDrive. You can also check a whole Goodreads shelf in one click.</p>`,
+    a: `<p>When you're on a Goodreads, StoryGraph or Amazon book page, it checks your public library's catalog and shows whether the library has the book, whether a copy is on the shelf right now, how many people are waiting for it, and whether an eBook or audiobook is available through Libby/OverDrive. You can also check a whole Goodreads shelf in one click.</p>`,
   },
   {
     q: "Does it cost anything?",
     a: `<p>There's a free plan: 5 book checks a day, one shelf scan a day (the first 10 books on the page), up to 3 libraries, digital availability, hold-queue wait estimates, and a searchable, exportable history.</p>
-        <p>Premium is $5 a month and adds unlimited checks, unlimited shelf scans, up to 5 libraries, overnight email alerts, and one-click opening of your hold pages. See <a href="/pricing">pricing</a>.</p>`,
+        <p>Premium is $5 a month and adds unlimited checks, unlimited shelf scans that cover all your libraries, up to 5 libraries, overnight alerts (a toolbar count, an optional notification and an email), and one-click opening of your hold pages. See <a href="/pricing">pricing</a>.</p>`,
   },
   {
     q: "Which libraries does it work with?",
@@ -34,19 +34,26 @@ export const FAQS = [
   },
   {
     q: "How do shelf scans work?",
-    a: `<p>Open one of your shelves on Goodreads (for example Want to Read) in list view and click <strong>Check library availability for this page</strong>. Library Checker looks up each book shown on the page — so if you want more books checked, increase Goodreads' \"per page\" setting. The free plan checks the first 10 books on the page; Premium checks them all.</p>`,
+    a: `<p>Open one of your shelves on Goodreads (for example Want to Read) in list view and click <strong>Check library availability for this page</strong>. Library Checker looks up each book shown on the page — so if you want more books checked, increase Goodreads' \"per page\" setting. The free plan checks the first 10 books on the page, at your primary library; Premium checks them all, at every library you've chosen, and marks books that are better at another library with a ★.</p>`,
   },
   {
     q: "How do the overnight alerts work?",
-    a: `<p>With Premium, the books from your shelf scans are re-checked every night. When one becomes available to borrow — as a print copy, or as an eBook or audiobook that was previously all checked out — we email you a short list. Alerts follow your primary library.</p>`,
+    a: `<p>With Premium, the books from your shelf scans are re-checked every night, at every library you've chosen. When one becomes available to borrow — as a print copy, or as an eBook or audiobook that was previously all checked out — a count appears on the extension's toolbar icon, and a card in the extension lists the books. We also email you a short list.</p>
+        <p>For a desktop notification as well, open Settings → Available-book alerts and switch on <strong>Desktop notifications</strong>; Chrome asks for permission the first time. The extension looks for new alerts about once an hour, so a book that becomes available overnight shows up when your browser is next open.</p>`,
   },
   {
     q: "Can I export my history?",
     a: `<p>Yes. In the History tab, search or filter your checks, then choose <strong>Export CSV</strong> (opens in Excel or Google Sheets) or <strong>JSON</strong>. It's free for everyone.</p>`,
   },
   {
-    q: "Does it work on other sites, like Amazon or StoryGraph?",
-    a: `<p>Not yet — Library Checker currently works on Goodreads book pages and shelves. Other sites are something we'd like to add.</p>`,
+    q: "Does it work on StoryGraph and Amazon?",
+    a: `<p>Yes. On a StoryGraph book page, or an Amazon book page (amazon.com, .ca, .co.uk and .com.au), click the Library Checker icon in Chrome's toolbar and choose <strong>Check library</strong>. That works straight away, with no extra permissions.</p>
+        <p>If you'd also like the check button to appear on the page itself, open Settings → <strong>Show the check button on other sites</strong> and switch on StoryGraph or Amazon. Chrome asks for your permission first, and you can switch it off again at any time. Reload any tabs you already have open.</p>
+        <p>Whole-shelf scans work on Goodreads shelves only.</p>`,
+  },
+  {
+    q: "What is the \"best option\" banner?",
+    a: `<p>When you check a book at more than one library, a green banner points out where you can read it soonest. A copy available now beats a wait, and a shorter wait beats a longer one, whether that's print, an eBook or an audiobook. Click it to open that library's page. It only compares answers it's sure about, so a library that's out of copies with no wait estimate, or doesn't have the book, won't be picked.</p>`,
   },
   {
     q: "What happens to my data?",

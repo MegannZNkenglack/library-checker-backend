@@ -25,8 +25,9 @@ export function popupMock() {
               </div>
               <div class="mock-digital">📱 Digital<br>eBook: 69 holds · about 5 months wait<br>Audiobook: available now</div>
               <div class="mock-others">
+                <div class="mock-best"><b>★ Best option: Toronto Public Library</b><span>available now (print)</span></div>
                 <small>Your other libraries</small>
-                <div class="mock-other good"><b>Toronto Public Library</b><span>Available now</span></div>
+                <div class="mock-other good"><b>★ Toronto Public Library</b><span>Available now</span></div>
                 <div class="mock-other"><b>Vancouver Public Library</b><span>Not in catalog</span></div>
               </div>
             </div>
@@ -45,11 +46,11 @@ export function shelfMock() {
           <span class="mock-shelf-btn">📚 Check library availability for this page</span>
           <div class="mock-shelf-actions"><span>✅ Open available (4)</span><span>⏳ Open hold-queue pages (7)</span><span>📱 Open digital copies (3)</span></div>
           <div class="mock-row"><a>Project Hail Mary</a><br><span class="badge badge-good">✅ Available now</span></div>
-          <div class="mock-row"><a>Red Rising</a><br><span class="badge badge-wait">⏳ On hold · 61 holds on 11 copies · about 4 months wait</span></div>
+          <div class="mock-row"><a>Red Rising</a><br><span class="badge badge-wait">⏳ On hold · 61 holds on 11 copies · about 4 months wait</span><span class="better-line">★ Better at Toronto Public Library: available now (print)</span></div>
           <div class="mock-row"><a>The Midnight Library</a><br><span class="badge badge-none">⬜ Not in catalog</span><span class="digital-line">📱 eBook: available now</span></div>
           <div class="mock-row"><a>Piranesi</a><br><span class="badge badge-wait">📗 Library has it (other edition)</span></div>
         </div>
-        <figcaption class="mock-caption">Example shelf after one click (Premium buttons shown)</figcaption>
+        <figcaption class="mock-caption">Example shelf after one click at two libraries (Premium)</figcaption>
       </figure>`;
 }
 

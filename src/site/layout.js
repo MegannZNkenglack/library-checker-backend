@@ -6,7 +6,7 @@ export const STORE_URL = "https://chromewebstore.google.com/detail/library-check
 export const SITE_URL  = (process.env.SITE_URL || "https://library-checker-backend.onrender.com").replace(/\/+$/, "");
 
 // Bumped whenever site.css / site.js change, so browsers fetch the new copy.
-export const ASSET_VERSION = "3";
+export const ASSET_VERSION = "4";
 
 const NAV = [
   { path: "/pricing",   label: "Pricing" },

@@ -3,7 +3,7 @@
 import { page, esc } from "./layout.js";
 
 // Change this date whenever the policy or terms text changes.
-const UPDATED = "October 10, 2026";
+const UPDATED = "October 11, 2026";
 
 const supportEmail = () => process.env.SUPPORT_EMAIL || "support@example.com";
 
@@ -21,7 +21,7 @@ export function privacy() {
     <h2>What we collect</h2>
     <ul>
       <li><strong>Account info:</strong> your email address, and if you sign in with Google, your Google account ID and name.</li>
-      <li><strong>Book checks:</strong> the ISBN, title, author and format of books you check, plus the library you selected and the result — stored as your check history. For premium shelf monitoring, we also keep the books on the shelves you scan so we can re-check them overnight.</li>
+      <li><strong>Book checks:</strong> the ISBN, title, author and format of books you check, plus the library you selected and the result — stored as your check history. For premium shelf monitoring, we also keep the books on the shelves you scan so we can re-check them overnight, and a short notice (title, author, library and a link) for each one that becomes available, for up to 60 days. On Goodreads, StoryGraph and Amazon the extension reads a book's title, author, ISBN and format from the page you're viewing, and sends them to us only when you check the book or scan a shelf.</li>
       <li><strong>Usage limits:</strong> when you reach a free-plan limit (the daily checks, the daily shelf scan, or the number of libraries per check), we record your account ID, which limit it was and the time. We use this only to understand whether the limits are set fairly; it isn't shared with anyone.</li>
       <li><strong>Billing:</strong> subscription status and payment method are handled entirely by Stripe. We store your Stripe customer and subscription IDs, not your card details.</li>
       <li><strong>Contact form:</strong> if you write to us through this website, we receive the name (optional), email address and message you submit, and use them only to reply.</li>

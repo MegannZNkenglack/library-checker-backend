@@ -384,3 +384,9 @@ select.field option { background: #1a1a1a; }
 .bar:hover { opacity: 1; }
 .chart-foot { font-size: 12px; color: var(--faint); margin-top: 10px; }
 @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } .chart-grid { grid-template-columns: 1fr; } }
+
+/* ── 2.8: best-option banner and "better elsewhere" line in the mock-ups ── */
+.mock-best { padding: 6px 9px; border-radius: 7px; background: rgba(52,211,103,0.12); border: 1px solid rgba(52,211,103,0.35); }
+.mock-best b { display: block; color: #86efac; font-size: 11px; }
+.mock-best span { color: #e5e7eb; font-size: 11px; }
+.mock-row .better-line { display: block; font-size: 11px; font-weight: 700; color: #1a7a3e; margin-top: 3px; }
