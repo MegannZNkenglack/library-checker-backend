@@ -15,7 +15,7 @@ const faqItem = ({ q, a }, open = false) => `
           <div class="answer">${a}</div>
         </details>`;
 
-const ctaBand = (title = "Know before you go", text = "Free to install, free to use. Upgrade only if you want more.") => `
+export const ctaBand = (title = "Know before you go", text = "Free to install, free to use. Upgrade only if you want more.") => `
   <section class="cta-band">
     <h2>${title}</h2>
     <p>${text}</p>
@@ -66,6 +66,7 @@ export function home() {
         <div class="step"><h3>Browse the way you already do</h3><p>On a Goodreads, StoryGraph or Amazon book page, click Check. It looks the book up at your library while you read.</p></div>
         <div class="step"><h3>See the answer on the page</h3><p>On the shelf, in the hold queue, or available as an eBook or audiobook — with the wait time.</p></div>
       </div>
+      <p class="center mt-22"><a href="/guide">Watch the short video or read the illustrated guide →</a></p>
     </div>
   </section>
 

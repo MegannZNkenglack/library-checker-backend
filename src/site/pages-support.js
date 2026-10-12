@@ -16,6 +16,8 @@ export function help() {
   </section>
 
   <div class="container-narrow prose">
+    <div class="callout">Prefer pictures? The <a href="/guide">illustrated guide</a> walks through every step with pictures and a short video, and you can download it as a PDF.</div>
+
     <h2>1. Install the extension</h2>
     <p>Open the <a href="https://chromewebstore.google.com/detail/library-checker/cifkfcmbfhaaolbppobmmjfddiaponfl" rel="noopener">Chrome Web Store page</a> and choose <strong>Add to Chrome</strong>. Then click the puzzle-piece icon in Chrome's toolbar and pin Library Checker so it's always one click away.</p>
 

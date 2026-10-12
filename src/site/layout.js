@@ -6,7 +6,7 @@ export const STORE_URL = "https://chromewebstore.google.com/detail/library-check
 export const SITE_URL  = (process.env.SITE_URL || "https://library-checker-backend.onrender.com").replace(/\/+$/, "");
 
 // Bumped whenever site.css / site.js change, so browsers fetch the new copy.
-export const ASSET_VERSION = "4";
+export const ASSET_VERSION = "5";
 
 const NAV = [
   { path: "/pricing",   label: "Pricing" },
@@ -19,7 +19,7 @@ const NAV = [
 
 const FOOTER = [
   { heading: "Product", links: [["/", "Home"], ["/pricing", "Pricing"], ["/libraries", "Supported libraries"], ["/whats-new", "What's new"]] },
-  { heading: "Support", links: [["/help", "Getting started"], ["/faq", "FAQ"], ["/contact", "Contact us"]] },
+  { heading: "Support", links: [["/help", "Getting started"], ["/guide", "Illustrated guide"], ["/faq", "FAQ"], ["/contact", "Contact us"]] },
   { heading: "Legal",   links: [["/privacy", "Privacy policy"], ["/terms", "Terms of service"]] },
 ];
 
@@ -34,8 +34,9 @@ const logoSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" str
 export const storeButton = (label = "Add to Chrome — it's free", cls = "btn btn-primary") =>
   `<a class="${cls}" href="${STORE_URL}" rel="noopener">${esc(label)}</a>`;
 
-// page({ path, title, description, body, jsonLd?, noindex?, bodyClass? }) -> full HTML document
-export function page({ path, title, description, body, jsonLd, noindex = false, bodyClass = "", scripts = [] }) {
+// page({ path, title, description, body, jsonLd?, noindex?, bodyClass?, image? }) -> full HTML document
+// image: absolute URL of a wide picture for link previews (otherwise the small app icon is used).
+export function page({ path, title, description, body, jsonLd, noindex = false, bodyClass = "", scripts = [], image }) {
   const isHome   = path === "/";
   const fullTitle = isHome ? title : `${title} — ${SITE_NAME}`;
   const url      = SITE_URL + (isHome ? "/" : path);
@@ -64,8 +65,8 @@ export function page({ path, title, description, body, jsonLd, noindex = false, 
   <meta property="og:title" content="${esc(fullTitle)}">
   <meta property="og:description" content="${esc(description)}">
   <meta property="og:url" content="${esc(url)}">
-  <meta property="og:image" content="${SITE_URL}/assets/icon-128.png">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="${esc(image || SITE_URL + "/assets/icon-128.png")}">
+  <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon-32.png">
   <link rel="apple-touch-icon" href="/assets/icon-128.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">

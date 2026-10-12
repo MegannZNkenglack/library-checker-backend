@@ -47,7 +47,7 @@ app.use("*", logger());
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 // ── Public website ────────────────────────────────────────────────────────────
-// Home, pricing, libraries, help, FAQ, what's new, contact, privacy, terms and
+// Home, pricing, libraries, help, guide, FAQ, what's new, contact, privacy, terms and
 // the Stripe checkout result pages (/billing/success, /billing/cancel — point
 // STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL at them). See src/site/.
 app.route("/", site);
