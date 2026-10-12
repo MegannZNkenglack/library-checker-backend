@@ -57,6 +57,9 @@ export async function runNightlyRescan() {
       } catch {
         continue; // leave last_status as-is, try again next night
       }
+      // The library couldn't be reached tonight: say nothing and keep what we knew,
+      // so a blip never looks like a book appearing (or disappearing) later.
+      if (result.status === "error") continue;
       totalChecked++;
 
       const improvement = describeImprovement(w, result);

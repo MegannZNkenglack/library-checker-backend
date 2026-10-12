@@ -311,7 +311,20 @@ function resultTitleLooksRight(html, matchIndex, searchTitle) {
   return text.includes(phrase);
 }
 
+// One catalog search. Throws when the library couldn't be reached or refused the
+// request (a blocked, rate-limited or broken site), so that is never mistaken
+// for "the library doesn't have it".
+const SEARCH_TIMEOUT_MS = 15000;
+async function fetchCatalogPage(url) {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
+  if (!resp.ok) throw new Error(`catalog search returned ${resp.status}`);
+  return resp.text();
+}
+
 async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
+  // Set when a search couldn't be completed. If nothing was found and a search
+  // failed, the honest answer is "couldn't check", not "not in the catalog".
+  let couldNotAsk = false;
   // BiblioCommons no longer renders a data-bib-id attribute — current
   // markup embeds real result links as /v2/record/S125C<bibId> instead.
   const recordLinkPattern = /\/v2\/record\/([A-Za-z0-9]+)/;
@@ -319,7 +332,7 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
   if (isbn) {
     const url = `${libraryUrl}/search?q=${encodeURIComponent(isbn)}&type=smart`;
     try {
-      const html  = await (await fetch(url)).text();
+      const html  = await fetchCatalogPage(url);
       const match = html.match(recordLinkPattern);
       if (match) {
         const numericId    = match[1].match(/\d+$/)?.[0];
@@ -331,21 +344,21 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
           searchUrl: `${libraryUrl}${match[0]}`,
         };
       }
-    } catch {}
+    } catch { couldNotAsk = true; }
   }
 
   if (title) {
     const url = titleSearchUrl(title, author, libraryUrl);
     try {
-      const html  = await (await fetch(url)).text();
+      const html  = await fetchCatalogPage(url);
       const match = html.match(recordLinkPattern);
       if (match && resultTitleLooksRight(html, match.index, title)) {
         return { status: "no_exact_edition", searchUrl: url };
       }
-    } catch {}
+    } catch { couldNotAsk = true; }
   }
 
-  return { status: "not_found" };
+  return { status: couldNotAsk ? "error" : "not_found" };
 }
 
 async function checkPhysical({ isbn, title, author, pageFormat, libraryUrl }) {
@@ -406,6 +419,9 @@ export async function checkLibrary(args) {
   const digitalKey = overdriveKeyFromUrl(args.libraryUrl);
   if (digitalKey) {
     const found = await checkDigital(args).catch(() => null);
+    // checkDigital gives null when it couldn't ask (or has nothing to ask with);
+    // "asked, not there" is an object with no eBook or audiobook in it.
+    if (found === null) return { status: "error" };
     const base  = {
       status:    "digital_only",
       searchUrl: `https://${digitalKey}.overdrive.com/search?query=${encodeURIComponent(args.title || "")}`,
@@ -480,11 +496,14 @@ router.post("/", async (c) => {
   await Promise.all(Array.from({ length: Math.min(MULTI_LIBRARY_CONCURRENCY, libraries.length) }, libWorker));
   const result = results[0]; // the primary library — what older clients read from the top level
 
-  // One check counts once, however many libraries it covered.
-  db.prepare(`
-    INSERT INTO usage (user_id, date, count) VALUES (?, ?, 1)
-    ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
-  `).run(userId, today);
+  // One check counts once, however many libraries it covered. A check where no
+  // library could be reached doesn't count: the user got no answer.
+  if (!results.every(r => r.status === "error")) {
+    db.prepare(`
+      INSERT INTO usage (user_id, date, count) VALUES (?, ?, 1)
+      ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
+    `).run(userId, today);
+  }
 
   const newUsage = db.prepare("SELECT count FROM usage WHERE user_id = ? AND date = ?").get(userId, today);
 
@@ -500,7 +519,7 @@ router.post("/", async (c) => {
     ...result,
     results,
     maxLibraries: MAX_LIBRARIES[tier] ?? MAX_LIBRARIES.free,
-    used:  newUsage?.count ?? 1,
+    used:  newUsage?.count ?? 0,
     limit: limit === Infinity ? null : limit,
   });
 });
@@ -600,10 +619,13 @@ router.post("/batch", async (c) => {
   }
   await Promise.all(Array.from({ length: multi ? MULTI_BATCH_CONCURRENCY : BATCH_CONCURRENCY }, worker));
 
-  db.prepare(`
-    INSERT INTO shelf_scans (user_id, date, count) VALUES (?, ?, 1)
-    ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
-  `).run(userId, today);
+  // Same for a shelf scan where every lookup failed.
+  if (!results.every(r => r.status === "error")) {
+    db.prepare(`
+      INSERT INTO shelf_scans (user_id, date, count) VALUES (?, ?, 1)
+      ON CONFLICT (user_id, date) DO UPDATE SET count = count + 1
+    `).run(userId, today);
+  }
 
   const insertHistory = db.prepare(`
     INSERT INTO check_history (user_id, isbn, title, author, library_url, library_name, status, availability, search_url)
@@ -633,6 +655,7 @@ router.post("/batch", async (c) => {
       if (!r.title) continue;
       const atLibraries = r.libraries || [{ libraryUrl, libraryName, ...r }];
       for (const at of atLibraries) {
+        if (at.status === "error") continue; // couldn't check: don't record a state we don't know
         upsertWatch.run(
           userId, at.libraryUrl, at.libraryName || null, r.title, r.author || null,
           r.isbn || null, at.status, at.availability || null, digitalState(at.digital)
