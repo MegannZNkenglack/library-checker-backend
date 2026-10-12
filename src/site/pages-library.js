@@ -94,11 +94,11 @@ export function libraryPage(lib) {
     },
     {
       q: `Can I check ${lib.name} and another library at once?`,
-      a: `<p>Yes. Add up to three libraries on the free plan (five with Premium) and one check covers them all. A green "best option" banner points out where you can read the book soonest. A check across several libraries counts as one check.</p>`,
+      a: `<p>Yes. Add up to two libraries on the free plan (five with Premium) and one check covers them all. A green "best option" banner points out where you can read the book soonest. A check across several libraries counts as one check.</p>`,
     },
     {
       q: "Is it free?",
-      a: `<p>The free plan gives you 5 book checks a day, one shelf scan a day (the first 10 books on the page), and up to 3 libraries. Premium is $5 a month for unlimited checks and shelf scans. See <a href="/pricing">pricing</a>.</p>`,
+      a: `<p>The free plan gives you 5 book checks a day, one shelf scan a day (the first 10 books on the page), and up to 2 libraries. Premium is $5 a month for unlimited checks and shelf scans. See <a href="/pricing">pricing</a>.</p>`,
     },
   ];
 

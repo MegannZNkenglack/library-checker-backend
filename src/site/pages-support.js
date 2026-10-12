@@ -24,7 +24,7 @@ export function help() {
     <p>Forgot your password? On the sign-in screen choose <strong>Forgot password?</strong>, enter your email, and we'll send a code to set a new one.</p>
 
     <h2>3. Choose your library</h2>
-    <p>Open the <strong>Settings</strong> tab and pick your library from the list (search by city or name). You can select more than one — up to 3 on the free plan, 5 with Premium. The first one is your <strong>primary</strong> library; use <em>Make primary</em> to change it. On the free plan, shelf scans cover your primary library. With Premium, shelf scans and overnight alerts cover every library you've chosen.</p>
+    <p>Open the <strong>Settings</strong> tab and pick your library from the list (search by city or name). You can select more than one — up to 2 on the free plan, 5 with Premium. The first one is your <strong>primary</strong> library; use <em>Make primary</em> to change it. On the free plan, shelf scans cover your primary library. With Premium, shelf scans and overnight alerts cover every library you've chosen.</p>
     <p>Your library isn't listed? Keep typing its name in the search box — libraries that lend eBooks and audiobooks through Libby/OverDrive appear under <em>eBooks &amp; audiobooks only</em> and can be added as <em>Digital only</em> libraries (print copies aren't checked for those). If its catalog address ends in <code>.bibliocommons.com</code>, use <em>Add a custom library</em> for full support. See <a href="/libraries">supported libraries</a>.</p>
 
     <h2>4. Check a book</h2>
@@ -166,7 +166,7 @@ const RELEASES = [
   {
     version: "2.3.0", date: "October 2026", title: "Check several libraries at once",
     items: [
-      ["Pick more than one library and see them all in a single check — up to 3 on the free plan, 5 with Premium. A check across several libraries counts as one.", ""],
+      ["Pick more than one library and see them all in a single check — up to 2 on the free plan, 5 with Premium. A check across several libraries counts as one.", ""],
       ["Choose which library is your primary one.", ""],
     ],
   },

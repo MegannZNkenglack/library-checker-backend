@@ -8,7 +8,7 @@ export const FAQS = [
   },
   {
     q: "Does it cost anything?",
-    a: `<p>There's a free plan: 5 book checks a day, one shelf scan a day (the first 10 books on the page), up to 3 libraries, digital availability, hold-queue wait estimates, and a searchable, exportable history.</p>
+    a: `<p>There's a free plan: 5 book checks a day, one shelf scan a day (the first 10 books on the page), up to 2 libraries, digital availability, hold-queue wait estimates, and a searchable, exportable history.</p>
         <p>Premium is $5 a month and adds unlimited checks, unlimited shelf scans that cover all your libraries, up to 5 libraries, overnight alerts (a toolbar count, an optional notification and an email), and one-click opening of your hold pages. See <a href="/pricing">pricing</a>.</p>`,
   },
   {

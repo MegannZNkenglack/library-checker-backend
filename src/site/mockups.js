@@ -4,7 +4,7 @@
 
 const bookIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d367" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
 
-// The extension popup after checking a book at three libraries.
+// The extension popup after checking a book at two libraries.
 export function popupMock() {
   return `
       <figure aria-label="Example of the Library Checker popup showing hold counts, digital copies and other libraries">
@@ -27,13 +27,12 @@ export function popupMock() {
               <div class="mock-others">
                 <div class="mock-best"><b>★ Best option: Toronto Public Library</b><span>available now (print)</span></div>
                 <small>Your other libraries</small>
-                <div class="mock-other good"><b>★ Toronto Public Library</b><span>Available now</span></div>
-                <div class="mock-other"><b>Vancouver Public Library</b><span>Not in catalog</span></div>
+                <div class="mock-other good"><b>★ Toronto Public Library</b><span>Available now</span></div>
               </div>
             </div>
           </div>
         </div>
-        <figcaption class="mock-caption">Example check across three libraries</figcaption>
+        <figcaption class="mock-caption">Example check across two libraries</figcaption>
       </figure>`;
 }
 

@@ -62,7 +62,7 @@ export function home() {
         <p class="lead">Set your library once and every book page can answer the question for you.</p>
       </div>
       <div class="steps">
-        <div class="step"><h3>Install and pick your library</h3><p>Add the extension, then choose your library — or up to three — in Settings.</p></div>
+        <div class="step"><h3>Install and pick your library</h3><p>Add the extension, then choose your library in Settings. Add a second one if you have another card.</p></div>
         <div class="step"><h3>Browse the way you already do</h3><p>On a Goodreads, StoryGraph or Amazon book page, click Check. It looks the book up at your library while you read.</p></div>
         <div class="step"><h3>See the answer on the page</h3><p>On the shelf, in the hold queue, or available as an eBook or audiobook — with the wait time.</p></div>
       </div>
@@ -79,7 +79,7 @@ export function home() {
         <div class="card"><div class="icon-circle" aria-hidden="true">📖</div><h3>Real availability</h3><p>See whether a copy is on the shelf right now or every copy is out — not just whether the library owns the book.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">⏳</div><h3>Hold queue and wait time</h3><p>How many people are waiting, how many copies there are, and a rough estimate of how long you'd wait.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">📱</div><h3>eBooks and audiobooks</h3><p>Where your library lends through Libby/OverDrive, see digital availability and wait times alongside print.</p></div>
-        <div class="card"><div class="icon-circle" aria-hidden="true">🏛️</div><h3>More than one library</h3><p>Hold a card at two libraries? Check up to three at once (five with Premium). A check across several libraries counts as one.</p></div>
+        <div class="card"><div class="icon-circle" aria-hidden="true">🏛️</div><h3>More than one library</h3><p>Hold a card at two libraries? Check up to two at once (five with Premium). A check across several libraries counts as one.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">📚</div><h3>Whole-shelf scan</h3><p>Open your Want to Read shelf and badge every book in one click. Free covers the first 10 books; Premium covers the page.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">🗂️</div><h3>History you can export</h3><p>Search everything you've checked, filter by result or library, and export it as a spreadsheet.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">🌐</div><h3>Goodreads, StoryGraph, Amazon</h3><p>Check from a Goodreads page, or click the toolbar icon on a StoryGraph or Amazon book page. Want the check button on those pages too? Turn it on in Settings.</p></div>
@@ -141,7 +141,7 @@ export function home() {
             <li>5 book checks a day</li>
             <li>Goodreads, StoryGraph and Amazon book pages</li>
             <li>1 shelf scan a day (first 10 books)</li>
-            <li>Up to 3 libraries</li>
+            <li>Up to 2 libraries</li>
             <li>eBook and audiobook availability</li>
             <li>Hold counts and wait estimates</li>
             <li>Searchable, exportable history</li>
@@ -207,7 +207,7 @@ export function pricing() {
             <li>5 book checks a day</li>
             <li>Goodreads, StoryGraph and Amazon book pages</li>
             <li>1 shelf scan a day (first 10 books on the page)</li>
-            <li>Up to 3 libraries</li>
+            <li>Up to 2 libraries</li>
             <li>eBook and audiobook availability</li>
             <li>Hold counts and wait estimates</li>
             <li>Searchable history with CSV/JSON export</li>
@@ -246,7 +246,7 @@ export function pricing() {
           <tbody>
             ${row("Book checks", "5 per day", "Unlimited")}
             ${row("Shelf scans", "1 per day · first 10 books", "Unlimited · whole page")}
-            ${row("Libraries per check", "Up to 3", "Up to 5")}
+            ${row("Libraries per check", "Up to 2", "Up to 5")}
             ${row("Shelf scans check", "Your main library", "All your libraries")}
             ${row("\"Best option\" across libraries", "✓", "✓")}
             ${row("Goodreads, StoryGraph and Amazon book pages", "✓", "✓")}
