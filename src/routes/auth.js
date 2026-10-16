@@ -171,12 +171,38 @@ router.post("/resend", async (c) => {
 // Always answers 200 so it can't be used to discover which emails have accounts.
 // Only verified accounts get a reset code (an unverified signup can simply sign up again).
 
+// People who mistype or never signed up should be told so rather than wait for a code that
+// will never come (sign-up already says when an email is taken, so this reveals nothing new).
+// The answer is still HTTP 200, with ok:false and a message, so versions of the extension that
+// predate it keep working exactly as before. A small per-visitor limit stops it being used to probe.
+const FORGOT_WINDOW_MS = 10 * 60 * 1000, FORGOT_MAX = 10;
+const forgotHits = new Map();   // ip -> [timestamps]
+export const _resetForgotLimits = () => forgotHits.clear();
+
+function forgotAllowed(ip, now = Date.now()) {
+  const recent = (forgotHits.get(ip) || []).filter(t => now - t < FORGOT_WINDOW_MS);
+  if (recent.length >= FORGOT_MAX) { forgotHits.set(ip, recent); return false; }
+  recent.push(now);
+  forgotHits.set(ip, recent);
+  if (forgotHits.size > 5000) for (const [k, v] of forgotHits) if (!v.some(t => now - t < FORGOT_WINDOW_MS)) forgotHits.delete(k);
+  return true;
+}
+
 router.post("/forgot", async (c) => {
   const { email } = await c.req.json();
   if (!email) return c.json({ error: "Email is required" }, 400);
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
-  if (user && user.email_verified) await issueResetCode(user);
+  const ip = (c.req.header("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+  if (!forgotAllowed(ip)) return c.json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429);
+
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).trim().toLowerCase());
+  if (!user) {
+    return c.json({ ok: false, noAccount: true, error: "There is no account with that email yet. Tap Sign up to create one." });
+  }
+  if (!user.email_verified) {
+    return c.json({ ok: false, unverified: true, error: "That email started signing up but was never confirmed. Sign up again with it and we will send you a new code." });
+  }
+  await issueResetCode(user);
   return c.json({ ok: true });
 });
 
