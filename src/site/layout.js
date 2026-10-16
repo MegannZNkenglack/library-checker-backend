@@ -59,6 +59,7 @@ export function page({ path, title, description, body, jsonLd, noindex = false, 
   <meta name="description" content="${esc(description)}">
   <link rel="canonical" href="${esc(url)}">
   ${noindex ? '<meta name="robots" content="noindex">' : ""}
+  <meta name="google-site-verification" content="SUqXWU0Nwr1QVAuk0wOsVpoGVrAD_Lcz0H0qrdm5RKU">
   <meta name="theme-color" content="#0d0d0d">
   <meta property="og:site_name" content="${SITE_NAME}">
   <meta property="og:type" content="website">
