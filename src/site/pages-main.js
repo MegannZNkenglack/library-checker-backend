@@ -5,6 +5,7 @@ import { page, esc, storeButton, SITE_URL } from "./layout.js";
 import { popupMock, shelfMock, emailMock } from "./mockups.js";
 import { FAQS } from "./faq.js";
 import { overdriveDirectory } from "../overdrive.js";
+import { slugFor } from "./pages-library.js";
 
 const LIBRARIES = JSON.parse(readFileSync(new URL("../data/libraries.json", import.meta.url), "utf8"));
 
@@ -14,7 +15,7 @@ const faqItem = ({ q, a }, open = false) => `
           <div class="answer">${a}</div>
         </details>`;
 
-const ctaBand = (title = "Know before you go", text = "Free to install, free to use. Upgrade only if you want more.") => `
+export const ctaBand = (title = "Know before you go", text = "Free to install, free to use. Upgrade only if you want more.") => `
   <section class="cta-band">
     <h2>${title}</h2>
     <p>${text}</p>
@@ -26,8 +27,8 @@ export function home() {
   const countries = new Set(LIBRARIES.map(l => l.country)).size;
   return page({
     path: "/",
-    title: "Library Checker — See if your library has that Goodreads book",
-    description: "A Chrome extension that shows whether your public library has the Goodreads book you're viewing — print, eBook or audiobook — with hold counts and wait times. Check a whole shelf in one click.",
+    title: "Library Checker — See if your library has that book",
+    description: "A Chrome extension that shows whether your public library has the book you're viewing on Goodreads, StoryGraph or Amazon — print, eBook or audiobook — with hold counts and wait times. Check a whole Goodreads shelf in one click.",
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
@@ -35,20 +36,20 @@ export function home() {
       applicationCategory: "BrowserApplication",
       operatingSystem: "Chrome",
       url: SITE_URL + "/",
-      description: "See whether your public library has the Goodreads book you're viewing, with hold counts and wait times.",
+      description: "See whether your public library has the book you're viewing on Goodreads, StoryGraph or Amazon, with hold counts and wait times.",
     },
     body: `
   <section class="hero">
     <div class="container hero-grid">
       <div>
-        <span class="eyebrow">Chrome extension for Goodreads</span>
+        <span class="eyebrow">Chrome extension for readers who borrow</span>
         <h1>Is it at your library? <em>Know in a click.</em></h1>
-        <p class="lead">Library Checker shows whether your local library has the Goodreads book you're looking at — in print, as an eBook or as an audiobook — and how long the wait is. No more switching tabs to search the catalog.</p>
+        <p class="lead">Library Checker shows whether your local library has the book you're looking at on Goodreads, StoryGraph or Amazon — in print, as an eBook or as an audiobook — and how long the wait is. No more switching tabs to search the catalog.</p>
         <div class="hero-actions">
           ${storeButton()}
           <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
         </div>
-        <p class="hero-note">Print catalogs on BiblioCommons · eBooks &amp; audiobooks at any Libby/OverDrive library · Free plan available</p>
+        <p class="hero-note">Goodreads · StoryGraph · Amazon · Print catalogs on BiblioCommons · eBooks &amp; audiobooks at any Libby/OverDrive library · Free plan available</p>
       </div>
       <div>${popupMock()}</div>
     </div>
@@ -58,13 +59,14 @@ export function home() {
     <div class="container">
       <div class="section-head">
         <h2>Three steps, then it just works</h2>
-        <p class="lead">Set your library once and every Goodreads page can answer the question for you.</p>
+        <p class="lead">Set your library once and every book page can answer the question for you.</p>
       </div>
       <div class="steps">
-        <div class="step"><h3>Install and pick your library</h3><p>Add the extension, then choose your library — or up to three — in Settings.</p></div>
-        <div class="step"><h3>Browse Goodreads as usual</h3><p>On any book page, click Check. It looks the book up at your library while you read.</p></div>
+        <div class="step"><h3>Install and pick your library</h3><p>Add the extension, then choose your library in Settings. Add a second one if you have another card.</p></div>
+        <div class="step"><h3>Browse the way you already do</h3><p>On a Goodreads, StoryGraph or Amazon book page, click Check. It looks the book up at your library while you read.</p></div>
         <div class="step"><h3>See the answer on the page</h3><p>On the shelf, in the hold queue, or available as an eBook or audiobook — with the wait time.</p></div>
       </div>
+      <p class="center mt-22"><a href="/guide">Watch the short video or read the illustrated guide →</a></p>
     </div>
   </section>
 
@@ -78,9 +80,12 @@ export function home() {
         <div class="card"><div class="icon-circle" aria-hidden="true">📖</div><h3>Real availability</h3><p>See whether a copy is on the shelf right now or every copy is out — not just whether the library owns the book.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">⏳</div><h3>Hold queue and wait time</h3><p>How many people are waiting, how many copies there are, and a rough estimate of how long you'd wait.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">📱</div><h3>eBooks and audiobooks</h3><p>Where your library lends through Libby/OverDrive, see digital availability and wait times alongside print.</p></div>
-        <div class="card"><div class="icon-circle" aria-hidden="true">🏛️</div><h3>More than one library</h3><p>Hold a card at two libraries? Check up to three at once (five with Premium) and see which has it first.</p></div>
+        <div class="card"><div class="icon-circle" aria-hidden="true">🏛️</div><h3>More than one library</h3><p>Hold a card at two libraries? Check up to two at once (five with Premium). A check across several libraries counts as one.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">📚</div><h3>Whole-shelf scan</h3><p>Open your Want to Read shelf and badge every book in one click. Free covers the first 10 books; Premium covers the page.</p></div>
         <div class="card"><div class="icon-circle" aria-hidden="true">🗂️</div><h3>History you can export</h3><p>Search everything you've checked, filter by result or library, and export it as a spreadsheet.</p></div>
+        <div class="card"><div class="icon-circle" aria-hidden="true">🌐</div><h3>Goodreads, StoryGraph, Amazon</h3><p>Check from a Goodreads page, or click the toolbar icon on a StoryGraph or Amazon book page. Want the check button on those pages too? Turn it on in Settings.</p></div>
+        <div class="card"><div class="icon-circle" aria-hidden="true">⭐</div><h3>A best option</h3><p>With several libraries, a banner points out where you can read it soonest — available now beats a wait, whether it's print, an eBook or an audiobook.</p></div>
+        <div class="card"><div class="icon-circle" aria-hidden="true">🔔</div><h3>Told when it's your turn</h3><p>Premium re-checks your scanned shelves every night and puts a count on the toolbar icon, with an optional notification and an email.</p></div>
       </div>
     </div>
   </section>
@@ -95,6 +100,7 @@ export function home() {
           <li>One click checks every book on the page</li>
           <li>Wait times shown right next to each title</li>
           <li>eBook and audiobook availability under each badge</li>
+          <li><strong>Premium:</strong> checks every library you've chosen and marks books that are better at another one with a ★</li>
           <li><strong>Premium:</strong> open the library pages for all your available, hold-queue or digital books at once</li>
         </ul>
         <a class="btn btn-secondary" href="/pricing">Free vs Premium</a>
@@ -109,11 +115,12 @@ export function home() {
       <div>
         <span class="eyebrow">Premium alerts</span>
         <h2>Let the library tell you when it's your turn</h2>
-        <p>Premium re-checks the books from your shelf scans every night. When something becomes available to borrow — in print, or as an eBook or audiobook that was all checked out — you get a short email.</p>
+        <p>Premium re-checks the books from your shelf scans every night. When something becomes available to borrow — in print, or as an eBook or audiobook that was all checked out — a count appears on the extension's toolbar icon. You can also turn on desktop notifications, and you get a short email.</p>
         <ul class="checks">
           <li>No need to keep re-checking the catalog</li>
           <li>Covers print and digital copies</li>
-          <li>Follows your primary library</li>
+          <li>Watches every library you've chosen</li>
+          <li>Toolbar count, optional notification and email</li>
         </ul>
         <a class="btn btn-secondary" href="/faq">How alerts work</a>
       </div>
@@ -133,8 +140,9 @@ export function home() {
           <p class="muted">Everything you need for everyday checks.</p>
           <ul class="checks">
             <li>5 book checks a day</li>
+            <li>Goodreads, StoryGraph and Amazon book pages</li>
             <li>1 shelf scan a day (first 10 books)</li>
-            <li>Up to 3 libraries</li>
+            <li>Up to 2 libraries</li>
             <li>eBook and audiobook availability</li>
             <li>Hold counts and wait estimates</li>
             <li>Searchable, exportable history</li>
@@ -148,9 +156,9 @@ export function home() {
           <p class="muted">For people who live on their hold list.</p>
           <ul class="checks">
             <li>Unlimited book checks</li>
-            <li>Unlimited shelf scans (the whole page)</li>
+            <li>Unlimited shelf scans (the whole page), across all your libraries</li>
             <li>Up to 5 libraries</li>
-            <li>Overnight email alerts for print and digital</li>
+            <li>Overnight alerts: toolbar count, notification and email</li>
             <li>Open all your hold pages in one click</li>
             <li>Everything in Free</li>
           </ul>
@@ -198,8 +206,9 @@ export function pricing() {
           <p class="muted">No card needed.</p>
           <ul class="checks">
             <li>5 book checks a day</li>
+            <li>Goodreads, StoryGraph and Amazon book pages</li>
             <li>1 shelf scan a day (first 10 books on the page)</li>
-            <li>Up to 3 libraries</li>
+            <li>Up to 2 libraries</li>
             <li>eBook and audiobook availability</li>
             <li>Hold counts and wait estimates</li>
             <li>Searchable history with CSV/JSON export</li>
@@ -215,12 +224,12 @@ export function pricing() {
           <p class="muted">Cancel any time.</p>
           <ul class="checks">
             <li>Unlimited book checks</li>
-            <li>Unlimited shelf scans (the whole page)</li>
+            <li>Unlimited shelf scans (the whole page), across all your libraries</li>
             <li>Up to 5 libraries</li>
             <li>eBook and audiobook availability</li>
             <li>Hold counts and wait estimates</li>
             <li>Searchable history with CSV/JSON export</li>
-            <li>Overnight email alerts (print and digital)</li>
+            <li>Overnight alerts: toolbar count, notification and email (print and digital)</li>
             <li>Open all your hold pages in one click</li>
           </ul>
           ${storeButton("Get Premium", "btn btn-primary")}
@@ -238,17 +247,20 @@ export function pricing() {
           <tbody>
             ${row("Book checks", "5 per day", "Unlimited")}
             ${row("Shelf scans", "1 per day · first 10 books", "Unlimited · whole page")}
-            ${row("Libraries per check", "Up to 3", "Up to 5")}
+            ${row("Libraries per check", "Up to 2", "Up to 5")}
+            ${row("Shelf scans check", "Your main library", "All your libraries")}
+            ${row("\"Best option\" across libraries", "✓", "✓")}
+            ${row("Goodreads, StoryGraph and Amazon book pages", "✓", "✓")}
             ${row("Print availability and hold queue", "✓", "✓")}
             ${row("Wait-time estimates", "✓", "✓")}
             ${row("eBooks and audiobooks (Libby/OverDrive)", "✓", "✓")}
             ${row("History search and export", "✓", "✓")}
-            ${row("Overnight email alerts", "—", "✓")}
+            ${row("Overnight alerts (toolbar count, notification, email)", "—", "✓")}
             ${row("Open hold pages in one click", "—", "✓")}
           </tbody>
         </table>
       </div>
-      <p class="muted center mt-18 small">A check across several libraries counts as one check.</p>
+      <p class="muted center mt-18 small">A check across several libraries counts as one check. Whole-shelf scans work on Goodreads shelves.</p>
     </div>
   </section>
 
@@ -271,7 +283,7 @@ ${ctaBand("Ready when you are", "Install it, pick your library, and check your f
 export function libraries() {
   const rows = LIBRARIES.map(l => `
         <li class="lib-row" data-country="${esc(l.country)}" data-name="${esc(l.name.toLowerCase())}">
-          <span><strong>${esc(l.name)}</strong><br><span class="where">${l.country === "CA" ? "Canada" : "United States"}</span></span>
+          <span><strong><a href="/libraries/${slugFor(l.name)}">${esc(l.name)}</a></strong><br><span class="where">${l.country === "CA" ? "Canada" : "United States"}</span></span>
           ${l.overdrive ? '<span class="tag" title="eBooks and audiobooks through Libby/OverDrive">+ Libby / OverDrive</span>' : ""}
         </li>`).join("");
   const withDigital = LIBRARIES.filter(l => l.overdrive).length;

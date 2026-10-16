@@ -4,7 +4,7 @@
 
 const bookIcon = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#34d367" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
 
-// The extension popup after checking a book at three libraries.
+// The extension popup after checking a book at two libraries.
 export function popupMock() {
   return `
       <figure aria-label="Example of the Library Checker popup showing hold counts, digital copies and other libraries">
@@ -25,14 +25,14 @@ export function popupMock() {
               </div>
               <div class="mock-digital">📱 Digital<br>eBook: 69 holds · about 5 months wait<br>Audiobook: available now</div>
               <div class="mock-others">
+                <div class="mock-best"><b>★ Best option: Toronto Public Library</b><span>available now (print)</span></div>
                 <small>Your other libraries</small>
-                <div class="mock-other good"><b>Toronto Public Library</b><span>Available now</span></div>
-                <div class="mock-other"><b>Vancouver Public Library</b><span>Not in catalog</span></div>
+                <div class="mock-other good"><b>★ Toronto Public Library</b><span>Available now</span></div>
               </div>
             </div>
           </div>
         </div>
-        <figcaption class="mock-caption">Example check across three libraries</figcaption>
+        <figcaption class="mock-caption">Example check across two libraries</figcaption>
       </figure>`;
 }
 
@@ -45,11 +45,11 @@ export function shelfMock() {
           <span class="mock-shelf-btn">📚 Check library availability for this page</span>
           <div class="mock-shelf-actions"><span>✅ Open available (4)</span><span>⏳ Open hold-queue pages (7)</span><span>📱 Open digital copies (3)</span></div>
           <div class="mock-row"><a>Project Hail Mary</a><br><span class="badge badge-good">✅ Available now</span></div>
-          <div class="mock-row"><a>Red Rising</a><br><span class="badge badge-wait">⏳ On hold · 61 holds on 11 copies · about 4 months wait</span></div>
+          <div class="mock-row"><a>Red Rising</a><br><span class="badge badge-wait">⏳ On hold · 61 holds on 11 copies · about 4 months wait</span><span class="better-line">★ Better at Toronto Public Library: available now (print)</span></div>
           <div class="mock-row"><a>The Midnight Library</a><br><span class="badge badge-none">⬜ Not in catalog</span><span class="digital-line">📱 eBook: available now</span></div>
           <div class="mock-row"><a>Piranesi</a><br><span class="badge badge-wait">📗 Library has it (other edition)</span></div>
         </div>
-        <figcaption class="mock-caption">Example shelf after one click (Premium buttons shown)</figcaption>
+        <figcaption class="mock-caption">Example shelf after one click at two libraries (Premium)</figcaption>
       </figure>`;
 }
 

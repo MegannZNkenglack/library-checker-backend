@@ -16,6 +16,8 @@ export function help() {
   </section>
 
   <div class="container-narrow prose">
+    <div class="callout">Prefer pictures? The <a href="/guide">illustrated guide</a> walks through every step with pictures and a short video, and you can download it as a PDF.</div>
+
     <h2>1. Install the extension</h2>
     <p>Open the <a href="https://chromewebstore.google.com/detail/library-checker/cifkfcmbfhaaolbppobmmjfddiaponfl" rel="noopener">Chrome Web Store page</a> and choose <strong>Add to Chrome</strong>. Then click the puzzle-piece icon in Chrome's toolbar and pin Library Checker so it's always one click away.</p>
 
@@ -24,11 +26,13 @@ export function help() {
     <p>Forgot your password? On the sign-in screen choose <strong>Forgot password?</strong>, enter your email, and we'll send a code to set a new one.</p>
 
     <h2>3. Choose your library</h2>
-    <p>Open the <strong>Settings</strong> tab and pick your library from the list (search by city or name). You can select more than one — up to 3 on the free plan, 5 with Premium. The first one is your <strong>primary</strong> library; use <em>Make primary</em> to change it. Your shelf scans and overnight alerts follow the primary library.</p>
+    <p>Open the <strong>Settings</strong> tab and pick your library from the list (search by city or name). You can select more than one — up to 2 on the free plan, 5 with Premium. The first one is your <strong>primary</strong> library; use <em>Make primary</em> to change it. On the free plan, shelf scans cover your primary library. With Premium, shelf scans and overnight alerts cover every library you've chosen.</p>
     <p>Your library isn't listed? Keep typing its name in the search box — libraries that lend eBooks and audiobooks through Libby/OverDrive appear under <em>eBooks &amp; audiobooks only</em> and can be added as <em>Digital only</em> libraries (print copies aren't checked for those). If its catalog address ends in <code>.bibliocommons.com</code>, use <em>Add a custom library</em> for full support. See <a href="/libraries">supported libraries</a>.</p>
 
     <h2>4. Check a book</h2>
     <p>Open any book on Goodreads. A small prompt appears in the corner — click <strong>Check</strong>. You can also click the extension icon and press <strong>Check library</strong>.</p>
+    <h3>On StoryGraph and Amazon</h3>
+    <p>Open a book page on StoryGraph, or on Amazon (amazon.com, .ca, .co.uk or .com.au), click the Library Checker icon and press <strong>Check library</strong>. To have the check button appear on those pages as well, open <strong>Settings</strong> → <em>Show the check button on other sites</em> and switch on StoryGraph or Amazon. Chrome asks for permission first; reload any open tabs afterwards.</p>
     <h3>Reading the result</h3>
     <ul>
       <li><strong>Available now</strong> — at least one copy is on the shelf.</li>
@@ -37,18 +41,21 @@ export function help() {
       <li><strong>Not in catalog</strong> — the library doesn't list it.</li>
       <li><strong>Digital</strong> — if your library lends eBooks or audiobooks through Libby/OverDrive, you'll see whether each is available now or how long the wait is. Tap it to open the title.</li>
       <li><strong>Your other libraries</strong> — a short row for each extra library you selected.</li>
+      <li><strong>★ Best option</strong> — a green banner showing where you can read it soonest across your libraries. Click it to open that library's page.</li>
     </ul>
 
     <h2>5. Scan a whole shelf</h2>
     <p>On Goodreads, open one of your shelves — for example <strong>Want to Read</strong> — and make sure it's shown as a list (not the cover grid). Click <strong>Check library availability for this page</strong> above the list. Every book on the page gets a badge.</p>
     <div class="callout">The scan checks the books shown on the page. To check more at once, raise Goodreads' <em>per page</em> setting on the shelf. The free plan checks the first 10 books per scan, once a day; Premium has no limit.</div>
     <p>After a scan, Premium members see buttons to open the library pages for all the available, hold-queue or digital books at once, ten tabs at a time. You still place each hold on your library's own site.</p>
+    <p>With Premium and more than one library, a scan checks every library you've chosen. If a book is better at one of your other libraries, you'll see <strong>★ Better at …</strong> under its badge, and the buttons open that library's page. Shelf scans work on Goodreads shelves only.</p>
 
     <h2>6. Search and export your history</h2>
     <p>The <strong>History</strong> tab keeps everything you've checked. Type in the search box to find a title or author, filter by result or library, and use <strong>Export CSV</strong> or <strong>JSON</strong> to download what's shown. <strong>Clear</strong> deletes your whole history, so export first if you want a copy.</p>
 
     <h2>7. Overnight alerts (Premium)</h2>
-    <p>Books from your shelf scans are re-checked every night. When one becomes available to borrow — in print, or as an eBook or audiobook — you get an email. Alerts follow your primary library.</p>
+    <p>Books from your shelf scans are re-checked every night, at every library you've chosen. When one becomes available to borrow — in print, or as an eBook or audiobook — a green count appears on the extension's toolbar icon, the extension lists the books on its Home tab, and you get an email. Click a book to open its page at your library; it's cleared from the list once you've looked.</p>
+    <p>To get a desktop notification as well, open <strong>Settings</strong> → <em>Available-book alerts</em> and switch on <strong>Desktop notifications</strong>. Chrome asks for permission the first time. The extension checks for new alerts about once an hour.</p>
 
     <h2>Troubleshooting</h2>
     <h3>"Couldn't reach library" or an error message</h3>
@@ -59,6 +66,10 @@ export function help() {
     <p>Send us the book's title and your library through the <a href="/contact?topic=bug">contact form</a>. Differences in titles, subtitles or series names between Goodreads and the catalog are the usual cause, and each report helps us improve matching.</p>
     <h3>I reached my daily limit</h3>
     <p>The free plan allows 5 book checks and one shelf scan a day; both reset each day. Premium has no limit.</p>
+    <h3>I don't see the check button on StoryGraph or Amazon</h3>
+    <p>The button on those sites is off by default. You can always click the extension icon on a book page to check it. To show the button on the page, switch the site on under Settings → <em>Show the check button on other sites</em>, allow it when Chrome asks, and reload the tab. On Amazon it only appears on book pages, not other products.</p>
+    <h3>I don't see the toolbar count</h3>
+    <p>The count is a Premium feature and only covers books from shelves you've scanned. It appears after the nightly re-check, up to an hour later when your browser is open. If you're signed out, there's nothing to show.</p>
     <h3>The shelf scan button doesn't appear</h3>
     <p>It only shows on Goodreads shelf pages in <strong>list view</strong>. Switch the shelf from the cover grid to the table list, then reload the page.</p>
     <h3>I didn't get my verification or reset code</h3>
@@ -107,6 +118,30 @@ export function faq() {
 // ── What's new ───────────────────────────────────────────────────────────────
 const RELEASES = [
   {
+    version: "2.8.0", date: "October 2026", title: "Shelf scans and alerts cover all your libraries",
+    items: [
+      ["Premium shelf scans now check every library you've chosen (up to 5), not just your main one. Books that are better at another library are marked with a ★.", "premium"],
+      ["After a scan, the one-click buttons open the best library's page for each book.", "premium"],
+      ["Overnight alerts now watch your books at every library you've chosen.", "premium"],
+      ["The free plan's scan summary now shows how many of your books were checked.", ""],
+    ],
+  },
+  {
+    version: "2.7.0", date: "October 2026", title: "A toolbar count when a watched book is available",
+    items: [
+      ["Premium: a green count on the toolbar icon, and a list on the extension's Home tab, when a book from your scanned shelves becomes available.", "premium"],
+      ["Optional desktop notifications. Switch them on in Settings and Chrome asks for permission.", "premium"],
+    ],
+  },
+  {
+    version: "2.6.0", date: "October 2026", title: "Works on StoryGraph and Amazon",
+    items: [
+      ["Click the toolbar icon on a StoryGraph or Amazon (.com, .ca, .co.uk, .com.au) book page to check it at your library.", "free"],
+      ["Want the check button on the page itself? Turn it on for StoryGraph or Amazon in Settings; Chrome asks for permission first.", ""],
+      ["Whole-shelf scans are still Goodreads only.", ""],
+    ],
+  },
+  {
     version: "2.5.1", date: "October 2026", title: "A \"best option\" across your libraries",
     items: [
       ["When you check a book at more than one library, a green banner now points out where you can read it soonest — available now beats a wait, and a shorter wait beats a longer one, whether that's print, an eBook or an audiobook. Click it to open that library's page.", "free"],
@@ -133,7 +168,7 @@ const RELEASES = [
   {
     version: "2.3.0", date: "October 2026", title: "Check several libraries at once",
     items: [
-      ["Pick more than one library and see them all in a single check — up to 3 on the free plan, 5 with Premium. A check across several libraries counts as one.", ""],
+      ["Pick more than one library and see them all in a single check — up to 2 on the free plan, 5 with Premium. A check across several libraries counts as one.", ""],
       ["Choose which library is your primary one.", ""],
     ],
   },

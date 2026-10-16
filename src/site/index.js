@@ -8,6 +8,9 @@ import { home, pricing, libraries } from "./pages-main.js";
 import { help, faq, whatsNew, contact, CONTACT_TOPICS } from "./pages-support.js";
 import { privacy, terms, billingSuccess, billingCancel, notFound } from "./pages-legal.js";
 import { sendContactEmail } from "../email.js";
+import { LIBRARY_PAGES, libraryPage } from "./pages-library.js";
+import { guide, GUIDE_PDF, GUIDE_VIDEO } from "./pages-guide.js";
+import { GUIDE_IMAGES, loadGuideFile, bytesResponse } from "./media.js";
 
 const site = new Hono();
 
@@ -19,11 +22,13 @@ const PAGES = [
   { path: "/pricing",    html: pricing(),     index: true },
   { path: "/libraries",  html: libraries(),   index: true },
   { path: "/help",       html: help(),        index: true },
+  { path: "/guide",      html: guide(),       index: true },
   { path: "/faq",        html: faq(),         index: true },
   { path: "/whats-new",  html: whatsNew(),    index: true },
   { path: "/contact",    html: contact(),     index: true },
   { path: "/privacy",    html: privacy(),     index: true },
   { path: "/terms",      html: terms(),       index: true },
+  ...LIBRARY_PAGES.map(l => ({ path: l.path, html: libraryPage(l), index: true })),
   { path: "/billing/success", html: billingSuccess(), index: false },
   { path: "/billing/cancel",  html: billingCancel(),  index: false },
 ];
@@ -83,6 +88,21 @@ site.get("/assets/:file", (c) => {
 
 site.get("/favicon.ico", (c) =>
   new Response(ASSETS["icon-32.png"].body, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } }));
+
+// ── Guide: the PDF, the video and the pictures (see media.js) ────────────────
+// Kept at fixed, shareable addresses, e.g. for linking the PDF in an email.
+
+async function guideFile(c, relativePath, type, disposition) {
+  const file = await loadGuideFile(relativePath);
+  return file ? bytesResponse(c.req, file, { type, disposition }) : c.notFound();
+}
+
+site.get(GUIDE_PDF,   (c) => guideFile(c, "library-checker-guide.pdf", "application/pdf", 'inline; filename="library-checker-guide.pdf"'));
+site.get(GUIDE_VIDEO, (c) => guideFile(c, "library-checker-how-to.mp4", "video/mp4"));
+site.get("/guide/img/:file", (c) => {
+  const name = c.req.param("file");
+  return GUIDE_IMAGES.has(name) ? guideFile(c, `img/${name}`, "image/png") : c.notFound();
+});
 
 // ── robots.txt and sitemap.xml ───────────────────────────────────────────────
 

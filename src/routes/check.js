@@ -26,7 +26,7 @@ const DAILY_LIMITS = {
 // How many libraries one check can cover. Extra entries beyond the cap are
 // ignored (not an error) so a downgraded account with a long saved list still works.
 const MAX_LIBRARIES = {
-  free:    3,
+  free:    2,
   premium: 5,
 };
 const MULTI_LIBRARY_CONCURRENCY = 3;
