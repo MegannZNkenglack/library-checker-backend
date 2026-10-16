@@ -6,6 +6,14 @@
     "overdrive": "barrielibrary"
   },
   {
+    "name": "Brampton Library",
+    "country": "CA",
+    "url": "https://catalogue.bramlib.on.ca",
+    "overdrive": "brampton",
+    "catalog": "polaris",
+    "ctx": "1.1033.0.0.5"
+  },
+  {
     "name": "Burlington Public Library",
     "country": "CA",
     "url": "https://burlington.bibliocommons.com",

@@ -13,8 +13,8 @@ export const FAQS = [
   },
   {
     q: "Which libraries does it work with?",
-    a: `<p>Libraries whose catalog runs on BiblioCommons, a platform used by many public libraries in Canada and the United States. The <a href="/libraries">supported libraries page</a> lists the ones you can pick from. If yours uses BiblioCommons but isn't listed, you can add its address under Settings → Add a custom library, or <a href="/contact?topic=library">ask us to add it</a>.</p>
-        <p>For libraries on other catalog systems, we can't search the print catalog yet — but if the library lends eBooks and audiobooks through Libby/OverDrive (most do), you can still add it in Settings and see digital availability and wait times. Search for your library by name in Settings; libraries that are digital-only are marked as such.</p>`,
+    a: `<p>Libraries whose catalog runs on BiblioCommons, a platform used by many public libraries in Canada and the United States, plus a few on other systems (Brampton Library is the first). The <a href="/libraries">supported libraries page</a> lists the ones you can pick from. If yours uses BiblioCommons but isn't listed, you can add its address under Settings → Add a custom library, or <a href="/contact?topic=library">ask us to add it</a>.</p>
+        <p>For most libraries on other catalog systems, we can't search the print catalog yet — but if the library lends eBooks and audiobooks through Libby/OverDrive (most do), you can still add it in Settings and see digital availability and wait times. Search for your library by name in Settings; libraries that are digital-only are marked as such.</p>`,
   },
   {
     q: "Do I need an account?",

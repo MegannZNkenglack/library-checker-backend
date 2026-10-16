@@ -49,7 +49,7 @@ export function home() {
           ${storeButton()}
           <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
         </div>
-        <p class="hero-note">Goodreads · StoryGraph · Amazon · Print catalogs on BiblioCommons · eBooks &amp; audiobooks at any Libby/OverDrive library · Free plan available</p>
+        <p class="hero-note">Goodreads · StoryGraph · Amazon · Print catalogs at supported libraries · eBooks &amp; audiobooks at any Libby/OverDrive library · Free plan available</p>
       </div>
       <div>${popupMock()}</div>
     </div>
@@ -291,11 +291,11 @@ export function libraries() {
   return page({
     path: "/libraries",
     title: "Supported libraries",
-    description: `Library Checker works with ${LIBRARIES.length} Canadian and US public libraries on the BiblioCommons platform, plus any BiblioCommons library you add yourself. See the full list.`,
+    description: `Library Checker works with ${LIBRARIES.length} Canadian and US public libraries, plus any BiblioCommons library you add yourself. See the full list.`,
     body: `
   <section class="page-head container">
     <h1>Supported libraries</h1>
-    <p class="lead">Library Checker works with libraries whose catalog runs on BiblioCommons. Pick yours from the list in the extension's Settings.</p>
+    <p class="lead">Library Checker searches the print catalogs of the libraries below and the eBook and audiobook catalogs of thousands more. Pick yours from the list in the extension's Settings.</p>
   </section>
 
   <section class="section pt-sm">

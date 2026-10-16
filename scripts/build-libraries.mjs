@@ -29,6 +29,8 @@ const libraries = LIBRARIES.map((lib) => ({
   country:   lib.country,
   url:       lib.url,
   overdrive: _internal.matchByName(lib.name) || null,
+  // Libraries that are not on BiblioCommons say what their catalog is (see src/catalogs/).
+  ...(lib.catalog ? { catalog: lib.catalog, ctx: lib.ctx } : {}),
 })).sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
 
 writeFileSync(OUT, JSON.stringify(libraries, null, 2) + "\n");

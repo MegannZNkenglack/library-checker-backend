@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import db        from "../db.js";
 import { checkDigital, digitalState, overdriveKeyFromUrl } from "../overdrive.js";
 import { recordLimitEvent } from "../events.js";
+import { polarisConfigFor, checkPolaris } from "../catalogs/polaris.js";
 import { listUnseenAlerts, markAlertsSeen } from "../alerts.js";
 import {
   HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
@@ -35,10 +36,11 @@ const MULTI_LIBRARY_CONCURRENCY = 3;
 const FREE_SHELF_SCAN_LIMIT = 10;
 
 // The server fetches whatever libraryUrl the client sends, so only real
-// BiblioCommons sites are accepted — otherwise a signed-in user could point the
-// server at internal addresses (SSRF).
+// BiblioCommons sites and the Polaris catalogs we have registered are accepted —
+// otherwise a signed-in user could point the server at internal addresses (SSRF).
 function isAllowedLibraryUrl(libraryUrl) {
   if (overdriveKeyFromUrl(libraryUrl)) return true; // digital-only library, no web address involved
+  if (polarisConfigFor(libraryUrl)) return true;
   try {
     const u = new URL(libraryUrl);
     return u.protocol === "https:" && /^[a-z0-9-]+\.bibliocommons\.com$/i.test(u.hostname);
@@ -362,6 +364,9 @@ async function scrapeLibrarySearch(isbn, title, author, libraryUrl) {
 }
 
 async function checkPhysical({ isbn, title, author, pageFormat, libraryUrl }) {
+  const polaris = polarisConfigFor(libraryUrl);
+  if (polaris) return checkPolaris({ isbn, title, author, cfg: polaris });
+
   const creds = getNovelISTCreds(libraryUrl);
   if (!creds) return scrapeLibrarySearch(isbn, title, author, libraryUrl);
 

@@ -10,6 +10,7 @@
 
 import { readFileSync } from "fs";
 import db from "./db.js";
+import { polarisConfigFor } from "./catalogs/polaris.js";
 
 // If the directory file is ever missing, digital lookups quietly switch off instead of crashing the server.
 let directory = [];
@@ -125,6 +126,8 @@ function matchDirectory(cmsUrl, longName) {
 export async function resolveOverdriveKey(libraryUrl, libraryName) {
   const direct = overdriveKeyFromUrl(libraryUrl);
   if (direct) return direct;
+  const polaris = polarisConfigFor(libraryUrl);   // a registered non-BiblioCommons library says which OverDrive library it is
+  if (polaris) return polaris.overdrive;
   if (keyMemo.has(libraryUrl)) return keyMemo.get(libraryUrl);
 
   const row = db.prepare("SELECT overdrive_key, resolved_at FROM overdrive_map WHERE library_url = ?").get(libraryUrl);

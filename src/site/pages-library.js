@@ -14,6 +14,7 @@ const LIBRARIES = JSON.parse(readFileSync(new URL("../data/libraries.json", impo
 // match). Falls back to the country if a library is added to the list and not here.
 const PLACES = {
   "Barrie Public Library": "Barrie, Ontario",
+  "Brampton Library": "Brampton, Ontario",
   "Burlington Public Library": "Burlington, Ontario",
   "Burnaby Public Library": "Burnaby, British Columbia",
   "Calgary Public Library": "Calgary, Alberta",
@@ -146,7 +147,7 @@ export function libraryPage(lib) {
           <tbody>
             <tr><th scope="row">Library</th><td>${name}</td></tr>
             <tr><th scope="row">Location</th><td>${esc(lib.place)}</td></tr>
-            <tr><th scope="row">Print catalog</th><td>Searched through its BiblioCommons catalog, <a href="${esc(lib.url)}" rel="noopener">${esc(lib.host)}</a></td></tr>
+            <tr><th scope="row">Print catalog</th><td>Searched through its own online catalog, <a href="${esc(lib.url)}" rel="noopener">${esc(lib.host)}</a></td></tr>
             <tr><th scope="row">eBooks and audiobooks</th><td>${hasDigital ? `Yes, through Libby/OverDrive (<a href="https://${esc(lib.overdrive)}.overdrive.com" rel="noopener">${esc(lib.overdrive)}.overdrive.com</a>)` : "Not shown for this library yet"}</td></tr>
             <tr><th scope="row">What you see</th><td>On the shelf now, or holds and copies with a rough wait${hasDigital ? ", plus digital availability" : ""}</td></tr>
             <tr><th scope="row">Works on</th><td>Goodreads, StoryGraph and Amazon book pages (shelf scans: Goodreads)</td></tr>
