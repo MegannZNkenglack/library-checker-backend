@@ -3,7 +3,7 @@
 import { page, esc } from "./layout.js";
 
 // Change this date whenever the policy or terms text changes.
-const UPDATED = "October 11, 2026";
+const UPDATED = "October 16, 2026";
 
 const supportEmail = () => process.env.SUPPORT_EMAIL || "support@example.com";
 

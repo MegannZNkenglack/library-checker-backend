@@ -118,6 +118,14 @@ export function faq() {
 // ── What's new ───────────────────────────────────────────────────────────────
 const RELEASES = [
   {
+    version: "2.9.1", date: "October 2026", title: "A review reminder, and clearer limits on the free plan",
+    items: [
+      ["A small card on the Home tab now asks for a rating after you have used Library Checker for a few days. Choose Rate it, Send feedback, Not now or Don't ask again.", ""],
+      ["The free plan now covers up to 2 libraries (Premium: 5), enough to see the Best option banner. Libraries you had saved beyond 2 are kept and marked Premium.", "free"],
+      ["A library whose website is down now shows as an error, not as Not in catalog, and a check that fails this way is not counted against your daily limit.", ""],
+    ],
+  },
+  {
     version: "2.8.0", date: "October 2026", title: "Shelf scans and alerts cover all your libraries",
     items: [
       ["Premium shelf scans now check every library you've chosen (up to 5), not just your main one. Books that are better at another library are marked with a ★.", "premium"],
