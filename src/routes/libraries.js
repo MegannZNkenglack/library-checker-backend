@@ -3,6 +3,7 @@
 
 import { Hono } from "hono";
 import { searchLibraries } from "../library-search.js";
+import { clientIp } from "../security.js";
 
 const router = new Hono();
 
@@ -21,8 +22,7 @@ export function allowSearch(ip, now = Date.now()) {
 }
 
 router.get("/search", (c) => {
-  const ip = (c.req.header("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
-  if (!allowSearch(ip)) return c.json({ error: "Too many searches — try again in a minute." }, 429);
+  if (!allowSearch(clientIp(c))) return c.json({ error: "Too many searches — try again in a minute." }, 429);
   c.header("Cache-Control", "public, max-age=300");
   return c.json({ results: searchLibraries(c.req.query("q")) });
 });

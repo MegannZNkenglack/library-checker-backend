@@ -26,14 +26,21 @@ export async function createToken(payload) {
 }
 
 // ── Verify a token ─────────────────────────────────────────────────────────────
+// Only HS256 is accepted, so a token can never choose a weaker or different algorithm.
 
 export async function verifyToken(token) {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, secret, { algorithms: [ALGORITHM] });
     return payload;
   } catch {
     return null;
   }
+}
+
+// Called after a password reset: every sign-in issued before now stops working.
+// (The reset itself hands back a fresh token, issued in this same second, which is still accepted.)
+export function revokeOlderTokens(userId) {
+  db.prepare("UPDATE users SET tokens_valid_after = ? WHERE id = ?").run(Math.floor(Date.now() / 1000), userId);
 }
 
 // ── Middleware: require a valid Bearer token ────────────────────────────────────
@@ -51,9 +58,12 @@ export async function requireAuth(c, next) {
   if (!payload) {
     return c.json({ error: "Invalid or expired token" }, 401);
   }
-  const user = db.prepare("SELECT id, email, tier FROM users WHERE id = ?").get(payload.sub);
+  const user = db.prepare("SELECT id, email, tier, tokens_valid_after FROM users WHERE id = ?").get(payload.sub);
   if (!user) {
     return c.json({ error: "User not found" }, 401);
+  }
+  if (user.tokens_valid_after && !(Number(payload.iat) >= user.tokens_valid_after)) {
+    return c.json({ error: "Invalid or expired token" }, 401);
   }
   c.set("userId",    user.id);
   c.set("userEmail", user.email);

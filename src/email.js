@@ -3,11 +3,9 @@
 //
 // Transport is picked from env vars:
 //   SMTP_USER + SMTP_PASS  -> SMTP via Nodemailer (defaults to Gmail; works for any recipient)
-//   RESEND_API_KEY         -> Resend (only reaches arbitrary recipients once a domain is verified)
 //   neither                -> log and skip, so local dev and CI never crash
 
 import nodemailer from "nodemailer";
-import { Resend } from "resend";
 
 const smtp = (process.env.SMTP_USER && process.env.SMTP_PASS)
   ? nodemailer.createTransport({
@@ -18,10 +16,8 @@ const smtp = (process.env.SMTP_USER && process.env.SMTP_PASS)
     })
   : null;
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-
 const FROM = process.env.NOTIFY_FROM_EMAIL
-  || (smtp ? `Library Checker <${process.env.SMTP_USER}>` : "onboarding@resend.dev");
+  || (smtp ? `Library Checker <${process.env.SMTP_USER}>` : "Library Checker <no-reply@localhost>");
 
 function escapeHtml(str) {
   return String(str)
@@ -32,7 +28,7 @@ function escapeHtml(str) {
 }
 
 export function emailConfigured() {
-  return Boolean(smtp || resend);
+  return Boolean(smtp);
 }
 
 // Returns true if the message was handed to a transport, false otherwise.
@@ -40,11 +36,6 @@ async function sendMail({ to, subject, html, replyTo }) {
   try {
     if (smtp) {
       await smtp.sendMail({ from: FROM, to, subject, html, ...(replyTo ? { replyTo } : {}) });
-      return true;
-    }
-    if (resend) {
-      const { error } = await resend.emails.send({ from: FROM, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) });
-      if (error) throw new Error(error.message);
       return true;
     }
   } catch (err) {

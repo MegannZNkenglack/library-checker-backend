@@ -10,6 +10,7 @@ import { Hono } from "hono";
 import { computeStats } from "../stats.js";
 import { adminPage } from "../site/pages-admin.js";
 import { htmlHeaders } from "../site/index.js";
+import { clientIp } from "../security.js";
 
 const router = new Hono();
 
@@ -24,9 +25,11 @@ export function tokenMatches(given) {
 // Slows down guessing: 5 wrong tries per visitor per 15 minutes.
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 5;
+const MAX_FAILURES_ALL = 40;   // from every address together: guessing from many addresses at once is stopped too
 const failures = new Map();
+let allFailures = [];
 const recent = (list, now) => list.filter(t => now - t < WINDOW_MS);
-export const _resetAdminLimits = () => failures.clear();
+export const _resetAdminLimits = () => { failures.clear(); allFailures = []; };
 
 router.get("/", (c) => {
   if (!enabled()) return c.notFound();
@@ -39,13 +42,15 @@ router.get("/", (c) => {
 router.post("/stats", (c) => {
   if (!enabled()) return c.notFound();
   const now = Date.now();
-  const ip  = (c.req.header("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+  const ip  = clientIp(c);
   const prior = recent(failures.get(ip) || [], now);
-  if (prior.length >= MAX_FAILURES) return c.json({ error: "Too many wrong attempts. Try again later." }, 429);
+  allFailures = recent(allFailures, now);
+  if (prior.length >= MAX_FAILURES || allFailures.length >= MAX_FAILURES_ALL) return c.json({ error: "Too many wrong attempts. Try again later." }, 429);
 
   const given = (c.req.header("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!tokenMatches(given)) {
     failures.set(ip, [...prior, now]);
+    allFailures.push(now);
     return c.json({ error: "Wrong token." }, 401);
   }
   failures.delete(ip);

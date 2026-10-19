@@ -10,12 +10,31 @@ import { checkDigital, digitalState, overdriveKeyFromUrl } from "../overdrive.js
 import { recordLimitEvent } from "../events.js";
 import { polarisConfigFor, checkPolaris } from "../catalogs/polaris.js";
 import { listUnseenAlerts, markAlertsSeen } from "../alerts.js";
+import { BadRequest } from "../security.js";
 import {
   HISTORY_PAGE_DEFAULT, HISTORY_PAGE_MAX,
   searchHistory, historyLibraries, exportRows, toCsv, toJson,
 } from "../history.js";
 
 const router = new Hono();
+
+// ── Request bodies ───────────────────────────────────────────────────────────
+// Everything the client sends is untrusted: text fields must really be text, and are cut to a sane
+// length before they are used, stored in the history, or put in a URL.
+const clip = (v, max) => (typeof v === "string" ? v.slice(0, max) : undefined);
+
+async function readObject(c) {
+  let body;
+  try { body = await c.req.json(); } catch { throw new BadRequest("Invalid request"); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new BadRequest("Invalid request");
+  return body;
+}
+
+const cleanLibrary = (l) => ({ url: clip(l?.url, 300), name: clip(l?.name, 200) });
+const cleanBook = (b) => ({
+  reviewId: clip(b?.reviewId, 40), bookId: clip(b?.bookId, 40),
+  title: clip(b?.title, 300), author: clip(b?.author, 200), isbn: clip(b?.isbn, 20),
+});
 
 // ── Tier limits ───────────────────────────────────────────────────────────────
 
@@ -460,13 +479,13 @@ router.post("/", async (c) => {
     }
   }
 
-  const body = await c.req.json();
-  const { isbn, title, author, pageFormat } = body;
+  const body = await readObject(c);
+  const isbn = clip(body.isbn, 20), title = clip(body.title, 300), author = clip(body.author, 200), pageFormat = clip(body.pageFormat, 30);
 
   // New clients send "libraries" (primary first); older ones send libraryUrl/libraryName.
   const requested = Array.isArray(body.libraries) && body.libraries.length
-    ? body.libraries.map(l => ({ url: l?.url, name: l?.name }))
-    : [{ url: body.libraryUrl, name: body.libraryName }];
+    ? body.libraries.slice(0, 20).map(cleanLibrary)
+    : [cleanLibrary({ url: body.libraryUrl, name: body.libraryName })];
 
   const seen = new Set();
   const libraries = requested.filter(l => {
@@ -560,14 +579,14 @@ router.post("/batch", async (c) => {
     }
   }
 
-  const body = await c.req.json();
-  const { books } = body;
+  const body = await readObject(c);
+  const books = Array.isArray(body.books) ? body.books.slice(0, MAX_BATCH_SIZE + 1).map(cleanBook) : body.books;
 
   // New clients send "libraries" (primary first); older ones send libraryUrl/libraryName.
   const sentList  = Array.isArray(body.libraries) && body.libraries.length > 0;
   const requested = sentList
-    ? body.libraries.map(l => ({ url: l?.url, name: l?.name }))
-    : [{ url: body.libraryUrl, name: body.libraryName }];
+    ? body.libraries.slice(0, 20).map(cleanLibrary)
+    : [cleanLibrary({ url: body.libraryUrl, name: body.libraryName })];
   const libraryUrl  = requested[0].url;
   const libraryName = requested[0].name;
 

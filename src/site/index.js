@@ -8,6 +8,7 @@ import { home, pricing, libraries } from "./pages-main.js";
 import { help, faq, whatsNew, contact, CONTACT_TOPICS } from "./pages-support.js";
 import { privacy, terms, billingSuccess, billingCancel, notFound } from "./pages-legal.js";
 import { sendContactEmail } from "../email.js";
+import { clientIp } from "../security.js";
 import { LIBRARY_PAGES, libraryPage } from "./pages-library.js";
 import { guide, GUIDE_PDF, GUIDE_VIDEO } from "./pages-guide.js";
 import { GUIDE_IMAGES, loadGuideFile, bytesResponse } from "./media.js";
@@ -41,6 +42,7 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
+  "object-src 'none'",
   "img-src 'self' data:",
   "connect-src 'self'",
   "form-action 'self'",
@@ -107,7 +109,7 @@ site.get("/guide/img/:file", (c) => {
 // ── robots.txt and sitemap.xml ───────────────────────────────────────────────
 
 site.get("/robots.txt", (c) =>
-  c.text(`User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /check/\nDisallow: /libraries/search\nDisallow: /admin\nDisallow: /billing/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`));
+  c.text(`User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /check/\nDisallow: /libraries/search\nDisallow: /billing/\n\nSitemap: ${SITE_URL}/sitemap.xml\n`));
 
 site.get("/sitemap.xml", (c) => {
   const urls = PAGES.filter(p => p.index)
@@ -166,8 +168,7 @@ site.post("/contact", async (c) => {
   if (message.length < 10)        return c.json({ error: "Please write a little more so we can help." }, 400);
   if (message.length > 5000)      return c.json({ error: "That message is too long — please keep it under 5,000 characters." }, 400);
 
-  const ip = (c.req.header("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
-  if (!allowContactAttempt(ip)) {
+  if (!allowContactAttempt(clientIp(c))) {
     return c.json({ error: "You've sent a few messages recently. Please try again in an hour." }, 429);
   }
 

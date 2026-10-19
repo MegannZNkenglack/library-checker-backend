@@ -5,11 +5,13 @@ import "dotenv/config";
 import { serve }   from "@hono/node-server";
 import { Hono }    from "hono";
 import { cors }    from "hono/cors";
-import { logger }  from "hono/logger";
+import { bodyLimit } from "hono/body-limit";
+import { HTTPException } from "hono/http-exception";
 
 import cron from "node-cron";
 
 import { requireAuth }     from "./auth.js";
+import { BadRequest, clientIp, configWarnings, createLimiter, limitByIp, requestLog, securityHeaders } from "./security.js";
 import authRouter          from "./routes/auth.js";
 import checkRouter         from "./routes/check.js";
 import billingRouter       from "./routes/billing.js";
@@ -25,12 +27,21 @@ const PORT = parseInt(process.env.PORT || "3000");
 // Allow requests from the Chrome extension and your landing page.
 // Chrome extensions use chrome-extension://EXTENSION_ID as their origin.
 
+// Exact origins only (no wildcards). Local development origins are left out in production.
 const allowedOrigins = [
-  `chrome-extension://${process.env.EXTENSION_ID}`,
-  "http://localhost:3000",
-  "http://localhost:5173",
-  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : []),
+  ...(process.env.EXTENSION_ID ? [`chrome-extension://${process.env.EXTENSION_ID}`] : []),
+  ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000", "http://localhost:5173"]),
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map(s => s.trim()).filter(Boolean) : []),
 ];
+
+// ── Security headers, request size, logging ─────────────────────────────────────
+// Headers first so even errors and rejected requests carry them.
+app.use("*", securityHeaders);
+app.use("*", requestLog);   // method, path, status, time: never the query string (it can hold a sign-in code)
+app.use("*", bodyLimit({
+  maxSize: 1024 * 1024,     // 1 MB: the biggest real request (a 100-book shelf scan) is a few tens of KB
+  onError: (c) => c.json({ error: "Request too large" }, 413),
+}));
 
 app.use("*", cors({
   origin: (origin) => allowedOrigins.includes(origin) ? origin : null,
@@ -40,8 +51,20 @@ app.use("*", cors({
   maxAge:        600,
 }));
 
-// ── Logging ────────────────────────────────────────────────────────────────────
-app.use("*", logger());
+// ── Rate limits ────────────────────────────────────────────────────────────────
+// A general ceiling per visitor address across the account and lookup API (the sign-in and code
+// endpoints have tighter limits of their own in routes/auth.js). Stripe's webhook is not limited.
+const apiLimit = createLimiter({ windowMs: 60 * 1000, max: 240 });
+app.use("/auth/*", limitByIp(apiLimit));
+app.use("/check/*", limitByIp(apiLimit));
+app.use("/billing/checkout", limitByIp(apiLimit));
+app.use("/billing/portal", limitByIp(apiLimit));
+export const _resetApiLimits = () => apiLimit.clear();
+
+// Per signed-in account too: a lookup contacts the library's website, so one account (premium has
+// no daily cap) must not be able to hammer it.
+const userLimit = createLimiter({ windowMs: 60 * 1000, max: 120 });
+export const _resetUserLimits = () => userLimit.clear();
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get("/health", (c) => c.json({ status: "ok" }));
@@ -64,6 +87,13 @@ app.route("/auth", authRouter);
 // ── Protected routes ───────────────────────────────────────────────────────────
 // requireAuth runs first, then passes to the route handler.
 app.use("/check/*", requireAuth);
+app.use("/check/*", async (c, next) => {
+  if (!userLimit.allow(String(c.get("userId")))) {
+    c.header("Retry-After", "60");
+    return c.json({ error: "You're going a bit fast. Please wait a moment and try again." }, 429);
+  }
+  await next();
+});
 
 // Billing auth is applied per-route inside routes/billing.js instead of here,
 // so that /billing/webhook (called by Stripe, not the extension) stays public.
@@ -83,8 +113,12 @@ app.notFound((c) => {
 });
 
 // ── Error handler ──────────────────────────────────────────────────────────────
+// Never sends details (stack traces, file paths, SQL) back to the caller.
 app.onError((err, c) => {
-  console.error("[Error]", err.message);
+  if (err instanceof BadRequest) return c.json({ error: err.message }, 400);
+  if (err instanceof SyntaxError) return c.json({ error: "Invalid request" }, 400);   // body wasn't valid JSON
+  if (err instanceof HTTPException) return err.getResponse();
+  console.error("[Error]", c.req.method, c.req.path, err.message);
   return c.json({ error: "Internal server error" }, 500);
 });
 
@@ -103,6 +137,7 @@ cron.schedule("0 3 * * *", () => {
 serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(`Library Checker backend running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  for (const w of configWarnings()) console.warn(`[Config] ${w}`);
 });
 
 export default app;

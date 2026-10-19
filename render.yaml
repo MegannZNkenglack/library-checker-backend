@@ -44,3 +44,13 @@ services:
         sync: false
       - key: SUPPORT_EMAIL
         sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: REQUIRE_EMAIL_VERIFICATION
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

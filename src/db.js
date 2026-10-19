@@ -10,7 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH   = process.env.DB_PATH || join(__dirname, "../data/library_checker.db");
 
 // Ensure the data directory exists
-import { mkdirSync } from "fs";
+import { mkdirSync, chmodSync } from "fs";
 mkdirSync(join(__dirname, "../data"), { recursive: true });
 
 const db = new Database(DB_PATH);
@@ -18,6 +18,11 @@ const db = new Database(DB_PATH);
 // Enable WAL mode for better concurrent read performance
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
+db.pragma("busy_timeout = 5000");   // wait briefly for a lock instead of failing the request
+
+// Only the account running the server needs to read the database (it holds password hashes and emails).
+// No effect on Windows; best effort elsewhere.
+try { chmodSync(DB_PATH, 0o600); } catch {}
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
@@ -97,6 +102,12 @@ db.exec(`
 const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
 if (!userCols.includes("email_verified")) {
   db.exec("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1");
+}
+
+// tokens_valid_after (unix seconds): sign-in tokens issued before this moment are refused. Set when the
+// password is reset, so a stolen or forgotten sign-in stops working. 0 = no cut-off.
+if (!userCols.includes("tokens_valid_after")) {
+  db.exec("ALTER TABLE users ADD COLUMN tokens_valid_after INTEGER NOT NULL DEFAULT 0");
 }
 
 // shelf_watches remembers whether a digital copy was waiting/available, so the

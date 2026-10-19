@@ -5,10 +5,50 @@ import { Hono }   from "hono";
 import bcrypt      from "bcryptjs";
 import db          from "../db.js";
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
-import { createToken, requireAuth } from "../auth.js";
+import { createToken, requireAuth, revokeOlderTokens } from "../auth.js";
 import { sendVerificationEmail, sendPasswordResetEmail, emailConfigured } from "../email.js";
+import { BadRequest, clientIp, createLimiter, limitByIp } from "../security.js";
 
 const router = new Hono();
+
+// ── Input handling ────────────────────────────────────────────────────────────
+// Everything from the request is treated as untrusted: it must be the right type and a sane size
+// before it is used (a number or object where text is expected would otherwise crash the handler).
+
+async function readBody(c) {
+  let body;
+  try { body = await c.req.json(); } catch { throw new BadRequest("Invalid request"); }
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new BadRequest("Invalid request");
+  return body;
+}
+
+// Text up to `max` characters, or "" when missing / not text.
+const text = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+// bcrypt only reads the first 72 bytes of a password, so longer ones are refused rather than silently cut.
+const PASSWORD_MAX_BYTES = 72;
+const passwordTooLong = (p) => Buffer.byteLength(p, "utf8") > PASSWORD_MAX_BYTES;
+
+// ── Throttling ────────────────────────────────────────────────────────────────
+// Per visitor address (see security.js clientIp) and, for sign-in, per account, so one person
+// can't keep guessing a password or flood someone's inbox with codes.
+const signupLimit  = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+const codeLimit    = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });   // verify + reset
+const resendLimit  = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+const googleLimit  = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+const loginIpFails = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });   // wrong passwords per address
+const loginAcctFails = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 }); // wrong passwords per account
+export const _resetAuthLimits = () => [signupLimit, codeLimit, resendLimit, googleLimit, loginIpFails, loginAcctFails].forEach(l => l.clear());
+
+router.use("/signup", limitByIp(signupLimit));
+router.use("/verify", limitByIp(codeLimit));
+router.use("/reset",  limitByIp(codeLimit));
+router.use("/resend", limitByIp(resendLimit));
+router.use("/google", limitByIp(googleLimit));
+router.use("/google/callback", limitByIp(googleLimit));
+
+// A password check against this runs when the email has no account, so "no such account" and
+// "wrong password" take the same time and can't be told apart by timing.
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 12);
 
 // ── Helper: build safe user response ─────────────────────────────────────────
 
@@ -75,7 +115,10 @@ function verificationRequiredResponse(c, email, status) {
 const verificationRequired = () => process.env.REQUIRE_EMAIL_VERIFICATION === "true";
 
 router.post("/signup", async (c) => {
-  const { email, password, name } = await c.req.json();
+  const body     = await readBody(c);
+  const email    = text(body.email, 254);
+  const password = typeof body.password === "string" ? body.password : "";
+  const name     = text(body.name, 100);
 
   if (!email || !password) {
     return c.json({ error: "Email and password are required" }, 400);
@@ -85,6 +128,9 @@ router.post("/signup", async (c) => {
   }
   if (password.length < 8) {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
+  }
+  if (passwordTooLong(password)) {
+    return c.json({ error: "Password is too long (72 bytes at most)" }, 400);
   }
   if (verificationRequired() && !emailConfigured() && process.env.NODE_ENV === "production") {
     return c.json({ error: "Sign-up is temporarily unavailable. Please try again later." }, 503);
@@ -121,10 +167,11 @@ router.post("/signup", async (c) => {
 // ── POST /auth/verify ─────────────────────────────────────────────────────────
 
 router.post("/verify", async (c) => {
-  const { email, code } = await c.req.json();
+  const body = await readBody(c);
+  const email = text(body.email, 254), code = text(String(body.code ?? ""), 20);
   if (!email || !code) return c.json({ error: "Email and code are required" }, 400);
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
   const rec  = user && db.prepare("SELECT * FROM email_verifications WHERE user_id = ?").get(user.id);
 
   if (user?.email_verified) {
@@ -159,10 +206,10 @@ router.post("/verify", async (c) => {
 // Always answers 200 so it can't be used to discover which emails have accounts.
 
 router.post("/resend", async (c) => {
-  const { email } = await c.req.json();
+  const email = text((await readBody(c)).email, 254);
   if (!email) return c.json({ error: "Email is required" }, 400);
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
   if (user && !user.email_verified) await issueVerificationCode(user);
   return c.json({ ok: true });
 });
@@ -189,13 +236,12 @@ function forgotAllowed(ip, now = Date.now()) {
 }
 
 router.post("/forgot", async (c) => {
-  const { email } = await c.req.json();
+  const email = text((await readBody(c)).email, 254);
   if (!email) return c.json({ error: "Email is required" }, 400);
 
-  const ip = (c.req.header("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
-  if (!forgotAllowed(ip)) return c.json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429);
+  if (!forgotAllowed(clientIp(c))) return c.json({ error: "Too many attempts. Please wait a few minutes and try again." }, 429);
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).trim().toLowerCase());
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
   if (!user) {
     return c.json({ ok: false, noAccount: true, error: "There is no account with that email yet. Tap Sign up to create one." });
   }
@@ -209,15 +255,20 @@ router.post("/forgot", async (c) => {
 // ── POST /auth/reset ──────────────────────────────────────────────────────────
 
 router.post("/reset", async (c) => {
-  const { email, code, newPassword } = await c.req.json();
+  const body = await readBody(c);
+  const email = text(body.email, 254), code = text(String(body.code ?? ""), 20);
+  const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
   if (!email || !code || !newPassword) {
     return c.json({ error: "Email, code and new password are required" }, 400);
   }
   if (newPassword.length < 8) {
     return c.json({ error: "Password must be at least 8 characters" }, 400);
   }
+  if (passwordTooLong(newPassword)) {
+    return c.json({ error: "Password is too long (72 bytes at most)" }, 400);
+  }
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
   const rec  = user && db.prepare("SELECT * FROM password_resets WHERE user_id = ?").get(user.id);
 
   if (!user || !rec) {
@@ -241,6 +292,7 @@ router.post("/reset", async (c) => {
   db.prepare("UPDATE users SET password_hash = ?, email_verified = 1, updated_at = datetime('now') WHERE id = ?")
     .run(passwordHash, user.id);
   db.prepare("DELETE FROM password_resets WHERE user_id = ?").run(user.id);
+  revokeOlderTokens(user.id);   // anyone already signed in with the old password is signed out
 
   const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
   const token   = await createToken({ sub: String(updated.id), email: updated.email });
@@ -250,21 +302,30 @@ router.post("/reset", async (c) => {
 // ── POST /auth/login ──────────────────────────────────────────────────────────
 
 router.post("/login", async (c) => {
-  const { email, password } = await c.req.json();
+  const body     = await readBody(c);
+  const email    = text(body.email, 254);
+  const password = typeof body.password === "string" ? body.password.slice(0, 1000) : "";
 
   if (!email || !password) {
     return c.json({ error: "Email and password are required" }, 400);
   }
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase());
-  if (!user || !user.password_hash) {
-    return c.json({ error: "Invalid email or password" }, 401);
+  // Wrong guesses are counted per address and per account; right ones cost nothing.
+  const ip = clientIp(c), acct = email.toLowerCase();
+  if (loginIpFails.blocked(ip) || loginAcctFails.blocked(acct)) {
+    c.header("Retry-After", "900");
+    return c.json({ error: "Too many failed sign-in attempts. Please wait 15 minutes, or use Forgot password." }, 429);
   }
 
-  const valid = await bcrypt.compare(password, user.password_hash);
-  if (!valid) {
+  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(acct);
+  // Always do one password check, even when there is no such account or it has no password (Google-only).
+  const valid = await bcrypt.compare(password, user?.password_hash || DUMMY_HASH);
+  if (!user || !user.password_hash || !valid) {
+    loginIpFails.record(ip);
+    loginAcctFails.record(acct);
     return c.json({ error: "Invalid email or password" }, 401);
   }
+  loginAcctFails.clear(acct);
 
   if (!user.email_verified) {
     await issueVerificationCode(user);
@@ -336,9 +397,10 @@ router.get("/google/callback", async (c) => {
       redirect_uri:  process.env.GOOGLE_REDIRECT_URI,
       grant_type:    "authorization_code",
     }),
+    signal: AbortSignal.timeout(10000),
   });
 
-  const tokenData = await tokenRes.json();
+  const tokenData = await tokenRes.json().catch(() => ({}));
   if (!tokenData.access_token) {
     return c.json({ error: "Failed to exchange code for token" }, 400);
   }
@@ -346,11 +408,17 @@ router.get("/google/callback", async (c) => {
   // Fetch user profile from Google
   const profileRes  = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    signal: AbortSignal.timeout(10000),
   });
-  const profile = await profileRes.json();
+  const profile = await profileRes.json().catch(() => ({}));
 
   if (!profile.id || !profile.email) {
     return c.json({ error: "Could not retrieve Google profile" }, 400);
+  }
+  // Only trust an address Google itself says is verified: it is what lets a Google sign-in take over
+  // an existing email account below.
+  if (profile.verified_email === false) {
+    return c.json({ error: "Your Google account's email address is not verified." }, 400);
   }
 
   // Find or create user
